@@ -1,0 +1,59 @@
+# Node.js dependencies and build artifacts
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Development and testing files
+.git/
+.github/
+.vscode/
+.idea/
+*.md
+!README.md
+CONTRIBUTING.md
+CHANGELOG.md
+LICENSE
+*.log
+
+# Test files and coverage reports
+coverage/
+.nyc_output/
+test/
+*.test.js
+*.spec.js
+vitest.config.mjs
+
+# Temporary files
+temp/
+tmp/
+.DS_Store
+*.tmp
+*.bak
+uploads/
+output/
+
+# Environment files
+.env
+.env.*
+*.local
+.env.development
+.env.test
+.env.production
+
+# Editor configurations
+.editorconfig
+.eslintrc
+.eslintignore
+.prettierrc
+.prettierignore
+
+# Docker related
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile.dev
+
+# Source control
+.git
+.gitignore
+.gitattributes

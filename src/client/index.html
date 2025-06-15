@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XLS Converter Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>XLS to XLSX Converter</h1>
+    <p>Easily convert XLS and other formats to XLSX format</p>
+  </header>
+
+  <main>
+    <section class="upload-section">
+      <div class="card">
+        <h2>Upload File</h2>
+        <p>Select a file to convert (XLS, CSV, ODS, or JSON)</p>
+        
+        <form id="upload-form">
+          <div class="file-input-container">
+            <input type="file" id="file-input" accept=".xls,.xlsx,.csv,.ods,.json">
+            <label for="file-input" class="file-input-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Choose file</span>
+            </label>
+          </div>
+          
+          <div class="file-details" id="file-details">
+            <p>No file selected</p>
+          </div>
+          
+          <button type="submit" id="convert-button" disabled>Convert to XLSX</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="conversion-section">
+      <div class="card">
+        <h2>Conversion Status</h2>
+        <div id="status-container">
+          <div class="status-message" id="status-message">
+            Select a file to begin
+          </div>
+          <div class="progress-container" id="progress-container" style="display: none;">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <div id="download-container" style="display: none;">
+            <button id="download-button">Download XLSX</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-section">
+      <div class="card">
+        <h2>Why Use This Converter?</h2>
+        <ul>
+          <li><strong>Security:</strong> All formula content is automatically stripped to prevent security vulnerabilities</li>
+          <li><strong>Browser-Based:</strong> No need to install software or upload to third-party services</li>
+          <li><strong>Multiple Formats:</strong> Support for XLS, XLSX, CSV, ODS, and JSON</li>
+          <li><strong>Fast:</strong> Optimized for efficient conversion, even with large files</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="compatibility-section">
+      <div class="card">
+        <h2>Format Compatibility</h2>
+        <table class="compatibility-table">
+          <thead>
+            <tr>
+              <th>Format</th>
+              <th>Read Support</th>
+              <th>Convert to XLSX</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>XLS (BIFF2-8)</td>
+              <td>✅ Full</td>
+              <td>✅ Full</td>
+              <td>Legacy Excel format with binary structure</td>
+            </tr>
+            <tr>
+              <td>XLSX</td>
+              <td>✅ Full</td>
+              <td>✅ Full</td>
+              <td>Modern Excel format with XML structure</td>
+            </tr>
+            <tr>
+              <td>CSV</td>
+              <td>✅ Full</td>
+              <td>✅ Full</td>
+              <td>Plain text with values separated by commas</td>
+            </tr>
+            <tr>
+              <td>ODS</td>
+              <td>✅ Full</td>
+              <td>✅ Full</td>
+              <td>OpenDocument Spreadsheet format</td>
+            </tr>
+            <tr>
+              <td>JSON</td>
+              <td>✅ Full</td>
+              <td>✅ Full</td>
+              <td>Array of objects or array of arrays</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>XLS Converter - Open Source Project - <a href="https://github.com/helloderekg/xlsx-converter" target="_blank">GitHub Repository</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XLS Converter - Browser Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>XLS to XLSX Converter</h1>
+      <p>Browser Demo with Client-Side Conversion</p>
+    </header>
+
+    <main>
+      <section class="demo-panel">
+        <div class="card">
+          <h2>Convert Your Files</h2>
+          <p class="info-text">This demo uses SheetJS to perform client-side conversion of XLS/CSV/JSON files to XLSX format.</p>
+          
+          <div class="upload-container">
+            <form id="convert-form">
+              <div class="file-input-container">
+                <input type="file" id="file-input" accept=".xls,.xlsx,.csv,.ods,.json">
+                <label for="file-input">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  Choose File
+                </label>
+              </div>
+              
+              <div class="file-info" id="file-info">
+                <p>No file selected</p>
+              </div>
+              
+              <button type="submit" id="convert-btn" disabled>Convert to XLSX</button>
+            </form>
+            
+            <div class="conversion-status">
+              <div id="status" class="status"></div>
+              <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div id="download-container" class="download-container" style="display:none;">
+            <button id="download-btn" class="download-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download XLSX
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="info-panel">
+        <div class="card">
+          <h2>About This Demo</h2>
+          <p>This browser demo showcases the XLS to XLSX Converter's client-side capabilities:</p>
+          <ul>
+            <li><strong>Client-Side Conversion:</strong> All processing happens in your browser - files are never uploaded to any server</li>
+            <li><strong>Formula Security:</strong> Automatically strips potentially dangerous formulas</li>
+            <li><strong>Multiple Formats:</strong> Supports XLS, XLSX, CSV, ODS, and JSON input</li>
+            <li><strong>No Installation:</strong> Works right in your browser without any software installation</li>
+          </ul>
+          
+          <h3>Limitations of Browser Demo</h3>
+          <ul>
+            <li>Maximum file size is limited by your browser's memory</li>
+            <li>Some complex XLS features may not be fully supported in client-side mode</li>
+            <li>For production use or more complex files, consider using the server-side API</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>XLS to XLSX Converter - <a href="https://github.com/helloderekg/xlsx-converter" target="_blank">GitHub Project</a></p>
+    </footer>
+  </div>
+
+  <!-- SheetJS library from CDN -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <!-- Demo script -->
+  <script src="demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+version: '3.8'
+services:
+  # Python core conversion service
+  python-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: python-service
+    container_name: xls-conversion-service
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+    environment:
+      - SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - FLASK_ENV=${FLASK_ENV:-production}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./src/server:/app/src/server
+      - ./temp:/app/temp
+    command: python /app/src/server/xls-conversion-service.py
+
+  # Node.js wrapper service
+  node-wrapper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: node-wrapper
+    container_name: xls-node-wrapper
+    ports:
+      - "3000:3000"
+    depends_on:
+      python-service:
+        condition: service_healthy
+    environment:
+      - XLS_CONVERSION_SERVICE_URL=http://python-service:5001
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - NODE_ENV=${NODE_ENV:-production}
+    restart: unless-stopped
+    volumes:
+      - ./src:/app/src
+      - ./temp:/app/temp
+    command: node /app/src/server/index.js
+
+  # Virus scanning service (optional but recommended for production)
+  clamav:
+    image: clamav/clamav:latest
+    container_name: clamav
+    ports:
+      - "3310:3310"
+    environment:
+      - CLAMD_CONF_MaxFileSize=50M
+      - CLAMD_CONF_StreamMaxLength=50M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "clamdscan", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - clamav-db:/var/lib/clamav
+
+volumes:
+  clamav-db:
