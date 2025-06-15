@@ -1,12 +1,32 @@
 # Node.js dependencies and build artifacts
+# Node.js and Yarn dependencies
 node_modules/
+.yarn/
+.pnp/
+.pnpm-store/
+.npm/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+
+# Do NOT ignore lockfiles (should be versioned)
+# package-lock.json
 yarn.lock
-.pnpm-store/
-.npm/
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.sublime*
+*.code-workspace
+
+# Build outputs
+/dist/
+/build/
+*.tsbuildinfo
+.next/
+out/
+.nuxt/
+
 
 # Build outputs
 dist/

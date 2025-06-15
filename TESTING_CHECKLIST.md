@@ -28,20 +28,11 @@ This document provides a comprehensive testing plan to verify all functionality 
 
 - [ ] Run integration tests for the server API:
   ```
-  npx vitest run test/integration/server.test.js
+  npx vitest run test\integration\server.test.js
   ```
 - [ ] Verify all API endpoints function correctly
 - [ ] Test authentication and security features
 - [ ] Test error handling and edge cases
-
-## 4. Test File Generation
-
-- [ ] Generate test files with various formats:
-  ```
-  node test/files/generate-test-files.js
-  ```
-- [ ] Verify test files are created in the appropriate directories
-- [ ] Check that various formats are generated (XLS, XLSX, CSV, JSON)
 
 ## 5. Standalone Tests
 

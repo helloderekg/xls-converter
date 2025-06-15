@@ -1,30 +1,46 @@
 # Node.js dependencies and build artifacts
+# Node.js and Yarn dependencies
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+.yarn/
+.pnp/
+.pnpm-store/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Development and testing files
+# Git and editor settings
 .git/
 .github/
 .vscode/
 .idea/
+*.sublime*
+*.code-workspace
+
+# Docs (ignore all except README)
 *.md
 !README.md
 CONTRIBUTING.md
 CHANGELOG.md
 LICENSE
-*.log
+
+# Build outputs
+/dist/
+/build/
+*.tsbuildinfo
+.next/
+out/
+.nuxt/
 
 # Test files and coverage reports
+test/
 coverage/
 .nyc_output/
-test/
 *.test.js
 *.spec.js
 vitest.config.mjs
 
-# Temporary files
+# Temporary, upload, and output files
 temp/
 tmp/
 .DS_Store
@@ -41,13 +57,12 @@ output/
 .env.test
 .env.production
 
-# Editor configurations
+# Editor config
 .editorconfig
 .eslintrc
 .eslintignore
 .prettierrc
 .prettierignore
-
 # Docker related
 docker-compose.yml
 docker-compose.*.yml

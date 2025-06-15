@@ -1,21 +1,21 @@
-# Use Python 3.9 as the base image for XLS Converter
-FROM python:3.9-slim
+# Use Python 3.12 as the base image for XLS Converter
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install Node.js 16
+# Install Node.js 20
 RUN apt-get update && \
-    apt-get install -y curl gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+    apt-get install -y curl gnupg build-essential && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     pip --version && python --version && node --version && npm --version
-
+    
 # Install Python dependencies with careful attention to binary compatibility
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir numpy==1.24.3 && \
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir numpy==1.26.0 && \
     pip install --no-cache-dir -r requirements.txt && \
     # Verify installed versions
     pip list | grep -E "numpy|pandas|xlrd|openpyxl|Flask"
