@@ -83,10 +83,44 @@ npm run start:client
 
 ### Docker Deployment
 
+The project includes a complete Docker setup for one-command deployment with all services running in the proper order.
+
 ```bash
-# Build and start with Docker
+# Build the Docker image
+docker build -t xls-converter .
+
+# Run the container with all ports exposed
+docker run -p 4040:4040 -p 5001:5001 -p 4001:4001 xls-converter
+```
+
+The Docker container starts three services in this order:
+
+1. Test server (API endpoint) - `http://localhost:4040`
+2. Python XLS conversion service (internal service) - `http://localhost:5001`
+3. Web client interface - `http://localhost:4001`
+
+You can also use Docker Compose:
+
+```bash
+# Build and start with Docker Compose
 npm run docker:build
 npm run docker:up
+
+# Stop services
+npm run docker:down
+```
+
+#### Environment Variables
+
+When using Docker, you can customize ports using environment variables:
+
+- `PORT`: Test server port (default: 4040)
+- `PYTHON_SERVICE_PORT`: Python service port (default: 5001)
+- `CLIENT_PORT`: Web client port (default: 4001)
+
+Example with custom ports:
+```bash
+docker run -e PORT=8080 -e PYTHON_SERVICE_PORT=8081 -e CLIENT_PORT=8082 -p 8080:8080 -p 8081:8081 -p 8082:8082 xls-converter
 ```
 
 ## 🛠️ Usage

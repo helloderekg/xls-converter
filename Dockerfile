@@ -1,41 +1,45 @@
-# Multi-stage build for XLS Converter
-# Stage 1: Python core service
-FROM python:3.9-slim AS python-service
+# Use Python 3.9 as the base image for XLS Converter
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies and Python dependencies
+# Install Node.js 16
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y curl gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+    apt-get install -y nodejs && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-    
+    rm -rf /var/lib/apt/lists/* && \
+    pip --version && python --version && node --version && npm --version
+
+# Install Python dependencies with careful attention to binary compatibility
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir numpy==1.24.3 && \
+    pip install --no-cache-dir -r requirements.txt && \
+    # Verify installed versions
+    pip list | grep -E "numpy|pandas|xlrd|openpyxl|Flask"
 
-# Copy Python service files
-COPY src/server/xls-conversion-service.py ./src/server/
-
-# Expose port used by Python service
-EXPOSE 5001
-
-# Stage 2: Node.js wrapper
-FROM node:16-alpine AS node-wrapper
-
-WORKDIR /app
-
-# Copy package.json and install dependencies
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+# Install Node.js dependencies
+COPY package.json package-lock.json* ./
+RUN npm install
 
 # Copy application code
 COPY . .
 
-# Expose port used by Node.js server
-EXPOSE 3000
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/output /app/temp
 
-# Start both services using a custom entrypoint script
-COPY docker-entrypoint.sh .
+# Expose ports for test-server, Python service, and client
+EXPOSE 4040 5001 4001
+
+# Set environment variables
+ENV PORT=4040
+ENV PYTHON_SERVICE_PORT=5001
+ENV CLIENT_PORT=4001
+ENV NODE_ENV=production
+
+# Make entrypoint script executable
 RUN chmod +x docker-entrypoint.sh
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "./docker-entrypoint.sh"]
