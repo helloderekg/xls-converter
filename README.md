@@ -195,7 +195,7 @@ The converter implements several security measures:
 
 ## 📚 Documentation
 
-For complete documentation, visit the [docs folder](./docs/) or the [GitHub Pages site](https://helloderekg.github.io/xlsx-converter/).
+For complete documentation, visit the [docs folder](./docs/)
 
 - [API Reference](./docs/api.md)
 - [Security Guide](./docs/security.md)
