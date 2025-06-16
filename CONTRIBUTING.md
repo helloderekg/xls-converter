@@ -126,7 +126,7 @@ Security is a priority for XLS/XLSX conversion. Please ensure your code:
 3. Implements proper validation
 4. Does not introduce vulnerabilities
 
-If you find a security vulnerability, please email security@example.com rather than opening a GitHub issue.
+If you find a security vulnerability, please email derekgsayshi@gmail.com rather than opening a GitHub issue.
 
 ## License
 
