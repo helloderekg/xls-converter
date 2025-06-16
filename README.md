@@ -85,12 +85,15 @@ npm run start:client
 
 The project includes a complete Docker setup for one-command deployment with all services running in the proper order.
 
+Dockerhub: https://hub.docker.com/r/derekgsayshi/xls-converter
+
+
 ```bash
 # Build the Docker image
-docker build -t xls-converter .
+docker build -t xls-converter:secure-compliant-alpine .
 
 # Run the container with all ports exposed
-docker run -p 4040:4040 -p 5001:5001 -p 4001:4001 xls-converter
+docker run -p 4040:4040 -p 5001:5001 -p 4001:4001 xls-converter:secure-compliant-alpine
 ```
 
 The Docker container starts three services in this order:
