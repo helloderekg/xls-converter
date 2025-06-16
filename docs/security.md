@@ -133,6 +133,6 @@ Excel formulas can be used to:
 
 If you discover a security vulnerability in the XLS to XLSX Converter, please do not disclose it publicly until we've had a chance to address it. Send details to:
 
-security@example.com
+derekgsayshi@gmail.com
 
 We appreciate your help in keeping our project secure!
