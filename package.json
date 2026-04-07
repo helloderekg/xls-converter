@@ -1,7 +1,7 @@
 {
-  "name": "xlsx-converter",
-  "version": "1.2.0",
-  "description": "Secure, zero-CVE XLS/XLSX/CSV/ODS/JSON conversion service. Pure-JS helpers + a tiny client SDK + a hardened Docker image.",
+  "name": "xls-to-xlsx",
+  "version": "1.2.1",
+  "description": "Secure, zero-CVE XLS → XLSX converter (also CSV/ODS/JSON). Pure-JS helpers + a tiny client SDK + a hardened Docker image.",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -40,9 +40,9 @@
     "start:python": "python src/server/xls-conversion-service.py",
     "start:node": "node src/server/index.js",
     "start:client": "python -m http.server 4001 --directory src/client",
-    "docker:build": "docker build -t derekgsayshi/xls-converter:1.2.0 -t derekgsayshi/xls-converter:latest .",
-    "docker:run": "docker run --rm -p 4040:4040 -p 5001:5001 -p 4001:4001 derekgsayshi/xls-converter:1.2.0",
-    "docker:scan": "docker scout cves derekgsayshi/xls-converter:1.2.0"
+    "docker:build": "docker build -t derekgsayshi/xls-converter:1.2.1 -t derekgsayshi/xls-converter:latest .",
+    "docker:run": "docker run --rm -p 4040:4040 -p 5001:5001 -p 4001:4001 derekgsayshi/xls-converter:1.2.1",
+    "docker:scan": "docker scout cves derekgsayshi/xls-converter:1.2.1"
   },
   "keywords": [
     "xls",

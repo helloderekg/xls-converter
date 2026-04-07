@@ -97,7 +97,7 @@ The package includes a CLI tool for quick file conversions:
 
 ```bash
 # Install globally
-npm install -g xlsx-converter
+npm install -g xls-to-xlsx
 
 # Convert a file
 xlsx-convert input.xls output.xlsx
@@ -121,7 +121,7 @@ For browser usage, you can use the included client library:
 
 ```html
 <!-- Include the client library -->
-<script src="./dist/xlsx-converter-client.min.js"></script>
+<script src="./dist/xls-to-xlsx-client.min.js"></script>
 
 <script>
   // Convert file selected by user
@@ -156,7 +156,7 @@ For browser usage, you can use the included client library:
 
 ```jsx
 import { useState } from 'react';
-import { convertFile } from 'xlsx-converter/client';
+import { convertFile } from 'xls-to-xlsx/client';
 
 function XlsConverter() {
   const [converting, setConverting] = useState(false);
@@ -221,7 +221,7 @@ function XlsConverter() {
 
 <script>
 import { ref } from 'vue';
-import { convertFile } from 'xlsx-converter/client';
+import { convertFile } from 'xls-to-xlsx/client';
 
 export default {
   setup() {
@@ -271,7 +271,7 @@ export default {
 For large files, use the streaming API to reduce memory usage:
 
 ```javascript
-import { createConverter } from 'xlsx-converter';
+import { createConverter } from 'xls-to-xlsx';
 
 async function convertLargeFile(inputPath, outputPath) {
   const converter = createConverter({
@@ -364,7 +364,7 @@ async function batchConvert(inputDir, outputDir) {
 Extend the converter to support additional file formats:
 
 ```javascript
-import { registerCustomFormat } from 'xlsx-converter';
+import { registerCustomFormat } from 'xls-to-xlsx';
 
 // Register a custom format handler
 registerCustomFormat({

@@ -49,7 +49,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 LABEL org.opencontainers.image.title="XLS Converter" \
       org.opencontainers.image.description="Zero-CVE XLS/XLSX converter (Python + Node, Wolfi base)" \
       org.opencontainers.image.vendor="XLS Converter" \
-      org.opencontainers.image.version="1.2.0" \
+      org.opencontainers.image.version="1.2.1" \
       org.opencontainers.image.source="https://github.com/helloderekg/xls-converter"
 
 USER root

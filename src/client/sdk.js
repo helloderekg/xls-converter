@@ -4,7 +4,7 @@
 //
 // Example (Node):
 //   import fs from 'node:fs';
-//   import { XlsConverterClient } from 'xlsx-converter';
+//   import { XlsConverterClient } from 'xls-to-xlsx';
 //
 //   const client = new XlsConverterClient('http://localhost:4040');
 //   const xlsxBuffer = await client.convert(fs.createReadStream('foo.xls'), {

@@ -85,7 +85,7 @@ The converter can also be used directly in your JavaScript application.
 
 ### Server-Side Usage
 
-import { convertXlsToXlsx } from 'xlsx-converter';
+import { convertXlsToXlsx } from 'xls-to-xlsx';
 
 // Convert a file from disk
 const result = await convertXlsToXlsx(
@@ -108,7 +108,7 @@ console.log(result);
 
 ### Browser Usage
 
-import { createXlsxBuffer } from 'xlsx-converter/client';
+import { createXlsxBuffer } from 'xls-to-xlsx/client';
 
 // Convert File object to XLSX buffer
 const xlsxBuffer = await createXlsxBuffer(fileObject);

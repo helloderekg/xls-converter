@@ -8,7 +8,7 @@ Secure, **zero-CVE** XLS/XLSX/CSV/ODS/JSON conversion. Ships as both an
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.8.0-blue.svg)
 ![Docker Scout](https://img.shields.io/badge/docker%20scout-0%20CVE-success.svg)
-![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)
 
 ## 🚀 Overview
 
@@ -87,18 +87,18 @@ Docker Hub: https://hub.docker.com/r/derekgsayshi/xls-converter
 
 ```bash
 # Pull
-docker pull derekgsayshi/xls-converter:1.2.0
+docker pull derekgsayshi/xls-converter:1.2.1
 
 # Run (Node API on 4040, Python on 5001, demo client on 4001)
 docker run --rm \
   -p 4040:4040 -p 5001:5001 -p 4001:4001 \
-  derekgsayshi/xls-converter:1.2.0
+  derekgsayshi/xls-converter:1.2.1
 ```
 
 Or build it yourself:
 
 ```bash
-npm run docker:build   # builds :1.2.0 and :latest
+npm run docker:build   # builds :1.2.1 and :latest
 npm run docker:run     # runs the image with default port mapping
 npm run docker:scan    # runs `docker scout cves` against the image
 ```
@@ -144,11 +144,11 @@ For building XLSX files from JS data, or stripping formulas from existing
 workbooks. These helpers run anywhere ExcelJS runs.
 
 ```bash
-npm install xlsx-converter
+npm install xls-to-xlsx
 ```
 
 ```javascript
-import { createXlsxBuffer, stripFormulas } from 'xlsx-converter';
+import { createXlsxBuffer, stripFormulas } from 'xls-to-xlsx';
 
 // Build an XLSX from an array of objects
 const buffer = await createXlsxBuffer([
@@ -173,7 +173,7 @@ get a service is to `docker run` the image (see Mode 3 below).
 
 ```javascript
 import fs from 'node:fs';
-import { XlsConverterClient } from 'xlsx-converter';
+import { XlsConverterClient } from 'xls-to-xlsx';
 
 const client = new XlsConverterClient('http://localhost:4040');
 
@@ -191,7 +191,7 @@ fs.writeFileSync('legacy.xlsx', Buffer.from(xlsxBytes));
 In a browser:
 
 ```javascript
-import { XlsConverterClient } from 'xlsx-converter/client';
+import { XlsConverterClient } from 'xls-to-xlsx/client';
 
 const client = new XlsConverterClient('https://your-converter.example');
 const file = document.querySelector('input[type=file]').files[0];
@@ -220,7 +220,7 @@ the Node API gateway, and the static web demo in a single zero-CVE container.
 ```bash
 docker run --rm \
   -p 4040:4040 -p 5001:5001 -p 4001:4001 \
-  derekgsayshi/xls-converter:1.2.0
+  derekgsayshi/xls-converter:1.2.1
 ```
 
 Then `POST` your file to `http://localhost:4040/convert` (or open the demo

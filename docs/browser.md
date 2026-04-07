@@ -109,7 +109,7 @@ For more advanced use cases or offline functionality, you can use our client lib
   <!-- Include SheetJS library -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <!-- Include our client library -->
-  <script src="path/to/xlsx-converter-client.js"></script>
+  <script src="path/to/xls-to-xlsx-client.js"></script>
 </head>
 <body>
   <h1>XLS to XLSX Converter (Client-Side)</h1>
@@ -168,23 +168,23 @@ For more advanced use cases or offline functionality, you can use our client lib
 
 Include our client library from a CDN:
 
-<script src="https://cdn.example.com/xlsx-converter/latest/xlsx-converter.min.js"></script>
+<script src="https://cdn.example.com/xls-to-xlsx/latest/xls-to-xlsx.min.js"></script>
 
 This creates a global `XlsxConverter` object with available methods.
 
 ### 2. NPM/Yarn Installation
 
-npm install @helloderekg/xlsx-converter
+npm install xls-to-xlsx
 # or
-yarn add @helloderekg/xlsx-converter
+yarn add xls-to-xlsx
 
 Then import in your JS application:
 
-import { createXlsxBuffer } from '@helloderekg/xlsx-converter/client';
+import { createXlsxBuffer } from 'xls-to-xlsx/client';
 
 ### 3. Module Bundlers (Webpack, Rollup, etc.)
 // In your JavaScript file
-import { createXlsxBuffer } from '@helloderekg/xlsx-converter/client';
+import { createXlsxBuffer } from 'xls-to-xlsx/client';
 
 // In your application code
 async function handleFileConversion(file) {
@@ -200,7 +200,7 @@ async function handleFileConversion(file) {
 
 ### React
 import React, { useState } from 'react';
-import { createXlsxBuffer } from '@helloderekg/xlsx-converter/client';
+import { createXlsxBuffer } from 'xls-to-xlsx/client';
 
 function XlsConverter() {
   const [status, setStatus] = useState('');
@@ -266,7 +266,7 @@ export default XlsConverter;
 </template>
 
 <script>
-import { createXlsxBuffer } from '@helloderekg/xlsx-converter/client';
+import { createXlsxBuffer } from 'xls-to-xlsx/client';
 
 export default {
   data() {
@@ -318,7 +318,7 @@ export default {
 By default, all formulas are stripped from Excel files for security reasons. To customize this behavior:
 
 ```javascript
-import { createXlsxBuffer, setFormulaHandlingStrategy } from '@helloderekg/xlsx-converter/client';
+import { createXlsxBuffer, setFormulaHandlingStrategy } from 'xls-to-xlsx/client';
 
 // Available strategies: 'strip', 'preserve', 'sanitize'
 setFormulaHandlingStrategy('sanitize');
@@ -406,7 +406,7 @@ document.getElementById('convert-btn').addEventListener('click', async () => {
 });
 
 // converter-worker.js
-importScripts('xlsx-converter-client.js');
+importScripts('xls-to-xlsx-client.js');
 
 self.onmessage = async (e) => {
   if (e.data.type === 'convert') {

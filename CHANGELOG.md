@@ -1,8 +1,27 @@
 # Changelog
 
-All notable changes to `xlsx-converter` are documented here. The format is
+All notable changes to `xls-to-xlsx` are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project uses [Semantic Versioning](https://semver.org/).
+
+## [1.2.1] - 2026-04-06
+
+### Changed
+- **Renamed npm package** from `xlsx-converter` to `xls-to-xlsx`. The
+  previous name was already taken on the npm registry by an unrelated
+  package; `xls-to-xlsx` is the more accurate name anyway (the project's
+  whole reason to exist is converting legacy XLS into modern XLSX).
+- Updated all `import` examples in the README, `docs/api.md`,
+  `docs/usage.md`, `docs/browser.md`, and the inline comments in
+  `src/index.js` and `src/client/sdk.js`.
+- Bumped the Docker image tag to `derekgsayshi/xls-converter:1.2.1` (the
+  *image* name on Docker Hub stays `xls-converter`; only the *npm package*
+  was renamed).
+
+### Fixed
+- The footer link in `src/client/index.html` pointed at
+  `https://github.com/helloderekg/xlsx-converter` (the wrong repo name —
+  actual repo is `xls-converter`). Fixed to point at the real repo.
 
 ## [1.2.0] - 2026-04-06
 
