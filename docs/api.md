@@ -22,10 +22,16 @@ POST /convert
 
 #### Authentication
 
-This endpoint requires JWT authentication. Include a valid JWT token in the Authorization header:
+By default this endpoint is **open** so the bundled web demo works out of
+the box. Set `REQUIRE_AUTH=true` on the Node server to require a Bearer JWT
+signed with `SECRET_KEY`:
 
-
+```
 Authorization: Bearer <your_jwt_token>
+```
+
+Server↔Python authentication (`Node → Flask`) is **always required** and
+uses the same `SECRET_KEY`.
 
 
 #### Request

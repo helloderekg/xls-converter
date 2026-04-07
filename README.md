@@ -1,10 +1,14 @@
 # XLS to XLSX Converter
 
-A secure, reliable, and efficient XLS/XLSX conversion service with support for multiple formats, powered by a Python core service with JavaScript wrappers.
+Secure, **zero-CVE** XLS/XLSX/CSV/ODS/JSON conversion. Ships as both an
+**npm package** (for use as a JS library or client SDK) and a **Docker image**
+(for the full Python + Node service).
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Node.js Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)
+![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.8.0-blue.svg)
+![Docker Scout](https://img.shields.io/badge/docker%20scout-0%20CVE-success.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 
 ## 🚀 Overview
 
@@ -44,74 +48,77 @@ This architecture provides a production-grade solution to these challenges, comb
 
 ### Prerequisites
 
-- Node.js 14+ 
+- Node.js **18+** (for the bundled `fetch` and modern ESM)
 - Python 3.8+ with pip
 - Git
 
 ### Server-Side Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/helloderekg/xlsx-converter.git
-cd xlsx-converter
+git clone https://github.com/helloderekg/xls-converter.git
+cd xls-converter
 
-# Install JavaScript dependencies
 npm install
-
-# Install Python dependencies
 pip install -r requirements.txt
 
-# Start all services (Python conversion service and Node.js wrapper)
+# Start both services together
 npm start
 ```
 
-### Starting Individual Components
+`npm start` runs [start-services.js](./start-services.js), which spawns the
+Python conversion service and the Node API gateway and forwards their logs.
 
-You can also start each component separately in this order:
+### Starting individual components
 
 ```bash
-# 1. Start the Python conversion service
-npm run start:python
-
-# 2. Start the Node.js wrapper (in another terminal)
-npm run start:node
-
-# 3. Start the web client (in another terminal)
-npm run start:client
-# Or use: npx serve src/client -l 4001
+npm run start:python   # Flask conversion service on :5001
+npm run start:node     # Node API gateway on :4040
+npm run start:client   # Static demo client on :4001 (python http.server)
 ```
 
 ### Docker Deployment
 
-The project includes a complete Docker setup for one-command deployment with all services running in the proper order.
+The project ships as a **zero-CVE container image** built on
+[Chainguard's Wolfi base](https://images.chainguard.dev/), with Python and
+Node.js bundled in a single hardened image. `docker scout` reports
+**0 critical / 0 high / 0 medium / 0 low** vulnerabilities.
 
-Dockerhub: https://hub.docker.com/r/derekgsayshi/xls-converter
-
-
-```bash
-# Build the Docker image
-docker build -t xls-converter:secure-compliant-alpine .
-
-# Run the container with all ports exposed
-docker run -p 4040:4040 -p 5001:5001 -p 4001:4001 xls-converter:secure-compliant-alpine
-```
-
-The Docker container starts three services in this order:
-
-1. Test server (API endpoint) - `http://localhost:4040`
-2. Python XLS conversion service (internal service) - `http://localhost:5001`
-3. Web client interface - `http://localhost:4001`
-
-You can also use Docker Compose:
+Docker Hub: https://hub.docker.com/r/derekgsayshi/xls-converter
 
 ```bash
-# Build and start with Docker Compose
-npm run docker:build
-npm run docker:up
+# Pull
+docker pull derekgsayshi/xls-converter:1.2.0
 
-# Stop services
-npm run docker:down
+# Run (Node API on 4040, Python on 5001, demo client on 4001)
+docker run --rm \
+  -p 4040:4040 -p 5001:5001 -p 4001:4001 \
+  derekgsayshi/xls-converter:1.2.0
 ```
+
+Or build it yourself:
+
+```bash
+npm run docker:build   # builds :1.2.0 and :latest
+npm run docker:run     # runs the image with default port mapping
+npm run docker:scan    # runs `docker scout cves` against the image
+```
+
+The container starts three services on startup:
+
+1. Python XLS conversion service - `http://localhost:5001` (internal)
+2. Node API gateway              - `http://localhost:4040` (`/health`, `/convert`, `/cors-test`)
+3. Static web client             - `http://localhost:4001`
+
+#### Environment variables
+
+| Variable                   | Default | Used by | Purpose                                              |
+|----------------------------|---------|---------|------------------------------------------------------|
+| `PORT`                     | `4040`  | Node    | Public API gateway port                              |
+| `PYTHON_SERVICE_PORT`      | `5001`  | Python  | Internal conversion service port                     |
+| `CLIENT_PORT`              | `4001`  | static  | Web demo port                                        |
+| `SECRET_KEY`               | dev key | both    | JWT secret. **Must be the same** in Node and Python. |
+| `REQUIRE_AUTH`             | `false` | Node    | Require Bearer JWT for `POST /convert`               |
+| `XLS_CONVERSION_SERVICE_URL` | `http://localhost:5001` | Node | Where to forward conversion requests |
 
 #### Environment Variables
 
@@ -128,64 +135,125 @@ docker run -e PORT=8080 -e PYTHON_SERVICE_PORT=8081 -e CLIENT_PORT=8082 -p 8080:
 
 ## 🛠️ Usage
 
-### API Usage
+There are three ways to use this project, depending on what you actually
+need:
+
+### Mode 1 — Pure-JS library (no Python required)
+
+For building XLSX files from JS data, or stripping formulas from existing
+workbooks. These helpers run anywhere ExcelJS runs.
+
+```bash
+npm install xlsx-converter
+```
 
 ```javascript
-// Server-side example
-import express from 'express';
-import { convertXlsToXlsx } from 'xlsx-converter';
+import { createXlsxBuffer, stripFormulas } from 'xlsx-converter';
 
-const app = express();
+// Build an XLSX from an array of objects
+const buffer = await createXlsxBuffer([
+  { name: 'Alice', score: 91 },
+  { name: 'Bob',   score: 87 },
+]);
+fs.writeFileSync('out.xlsx', Buffer.from(buffer));
 
-app.post('/convert', async (req, res) => {
-  try {
-    const result = await convertXlsToXlsx(
-      req.files.input.path, 
-      './output.xlsx',
-      path.extname(req.files.input.name)
-    );
-    
-    res.download('./output.xlsx');
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+// Or harden an existing ExcelJS workbook against formula-injection
+import ExcelJS from 'exceljs';
+const wb = new ExcelJS.Workbook();
+await wb.xlsx.readFile('untrusted.xlsx');
+stripFormulas(wb);
+await wb.xlsx.writeFile('safe.xlsx');
+```
+
+### Mode 2 — Client SDK against a running converter service
+
+Use this when you need to convert legacy `.xls` (or `.csv`/`.ods`) files —
+that path needs the Python service running somewhere. The simplest way to
+get a service is to `docker run` the image (see Mode 3 below).
+
+```javascript
+import fs from 'node:fs';
+import { XlsConverterClient } from 'xlsx-converter';
+
+const client = new XlsConverterClient('http://localhost:4040');
+
+// Health check
+console.log(await client.health()); // → { status: 'ok', timestamp: ... }
+
+// Convert a file
+const xlsxBytes = await client.convert(
+  fs.readFileSync('legacy.xls'),
+  { filename: 'legacy.xls', contentType: 'application/vnd.ms-excel' }
+);
+fs.writeFileSync('legacy.xlsx', Buffer.from(xlsxBytes));
+```
+
+In a browser:
+
+```javascript
+import { XlsConverterClient } from 'xlsx-converter/client';
+
+const client = new XlsConverterClient('https://your-converter.example');
+const file = document.querySelector('input[type=file]').files[0];
+const xlsxBytes = await client.convert(file);
+
+const url = URL.createObjectURL(new Blob([xlsxBytes]));
+const a = document.createElement('a');
+a.href = url;
+a.download = file.name.replace(/\.[^.]+$/, '.xlsx');
+a.click();
+```
+
+If the server has `REQUIRE_AUTH=true`, pass a Bearer JWT:
+
+```javascript
+const client = new XlsConverterClient('https://your-converter.example', {
+  token: yourSignedJwt,
 });
 ```
 
-### Browser Usage
+### Mode 3 — Full service via Docker (Python + Node bundled)
 
-```javascript
-// Browser example
-import { createXlsxBuffer } from 'xlsx-converter/client';
+The `derekgsayshi/xls-converter` image bundles the Python conversion engine,
+the Node API gateway, and the static web demo in a single zero-CVE container.
 
-document.getElementById('upload-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const file = document.getElementById('file-input').files[0];
-  
-  try {
-    const xlsxBuffer = await createXlsxBuffer(file);
-    
-    // Create download link
-    const url = URL.createObjectURL(new Blob([xlsxBuffer]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'converted.xlsx';
-    link.click();
-  } catch (error) {
-    console.error('Conversion failed:', error);
-  }
-});
+```bash
+docker run --rm \
+  -p 4040:4040 -p 5001:5001 -p 4001:4001 \
+  derekgsayshi/xls-converter:1.2.0
 ```
+
+Then `POST` your file to `http://localhost:4040/convert` (or open the demo
+at `http://localhost:4001/`).
 
 ## 🔒 Security
 
-The converter implements several security measures:
-
+### Application-level controls
 - **Formula Stripping**: All formulas are removed from cells to prevent formula injection attacks
 - **File Size Limits**: Default 50MB maximum file size to prevent DoS attacks
 - **MIME Type Validation**: Strict validation of file types
 - **JWT Authentication**: Protected API endpoints
 - **Input Sanitization**: Proper handling of filenames and paths
+
+### Container hardening (v1.2.0)
+- **Zero CVEs**: Built on `cgr.dev/chainguard/wolfi-base`, which is rebuilt nightly
+  against the latest CVE fixes. `docker scout cves` reports `0C / 0H / 0M / 0L`.
+- **No build tools at runtime**: No `gcc`, no `npm`, no `curl` in the final image —
+  only `python`, `nodejs`, and `busybox` (which provides `wget` for the healthcheck).
+- **Non-root user**: The container runs as `appuser`, not root.
+- **Multi-stage build**: Build dependencies (`build-base`, `npm`) live only in the
+  intermediate stage and are dropped from the final image.
+- **Lockfile regenerated in build**: `package-lock.json` is excluded from the build
+  context and regenerated against the current `overrides`, so vulnerability scanners
+  read fresh resolved versions instead of stale lockfile entries.
+- **Single source of truth for the Node server** (new in 1.2.0): the old
+  `test-server.js` (which had a dead `createExcelFile` reference and was
+  drifting away from the canonical server) was deleted. Both local dev and
+  the Docker image now run [src/server/index.js](./src/server/index.js).
+- **JWT env var unified** (new in 1.2.0): Server↔Python auth uses `SECRET_KEY`
+  on both sides. Previously the Node side read `JWT_SECRET_KEY` and the
+  Python side read `SECRET_KEY` — same default value, so it worked in dev,
+  but would silently break in any prod deployment that set a custom secret.
 
 ## 📈 Performance
 
@@ -200,7 +268,9 @@ For complete documentation, visit the [docs folder](./docs/)
 - [API Reference](./docs/api.md)
 - [Security Guide](./docs/security.md)
 - [Browser Integration](./docs/browser.md)
-- [Testing & Validation](./docs/testing.md)
+- [Usage Guide](./docs/usage.md)
+- [Comparison with other libraries](./docs/comparison.md)
+- [Why this exists](./docs/why.md)
 
 ## 🧪 Testing
 

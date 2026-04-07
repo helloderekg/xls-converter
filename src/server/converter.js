@@ -21,10 +21,10 @@ const DEFAULT_SERVICE_URL = 'http://localhost:5001';
 const SERVICE_URL = process.env.XLS_CONVERSION_SERVICE_URL || DEFAULT_SERVICE_URL;
 
 /**
- * JWT Secret key for authentication with the Python service
- * Can be overridden by setting the JWT_SECRET_KEY environment variable
+ * JWT secret used to authenticate Server → Python requests.
+ * Must match the Python service's SECRET_KEY env var (same name, same value).
  */
-const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || 'dev-secret-key-change-in-production';
+const SECRET_KEY = process.env.SECRET_KEY || 'dev-secret-key-change-in-production';
 
 /**
  * Convert various file formats to XLSX using the Python service
@@ -46,7 +46,7 @@ export async function convertXlsToXlsx(inputPath, outputPath, ext) {
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
       },
-      JWT_SECRET_KEY,
+      SECRET_KEY,
       { algorithm: 'HS256' }
     );
     

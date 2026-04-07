@@ -1,133 +1,60 @@
-/**
- * XLS to XLSX Converter - Service Starter
- * 
- * This script starts both the Python core conversion service and the Node.js wrapper.
- * It handles proper sequencing, environment setup, and provides status information.
- */
+// Local dev launcher: spawns the Python conversion service and the Node API
+// gateway, forwards their output, and shuts both down on Ctrl+C.
+//
+// In production this script is NOT used — the docker-entrypoint.sh script
+// runs the equivalent inside the container.
 
 import { spawn } from 'child_process';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-// Setup paths
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ANSI color codes for console output
-const colors = {
+const c = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m'
+  blue:  '\x1b[34m',
+  cyan:  '\x1b[36m',
+  red:   '\x1b[31m',
 };
 
-// Create temp directory if it doesn't exist
-const tempDir = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'temp'), { recursive: true });
+
+const children = [];
+
+function launch(name, color, cmd, args) {
+  console.log(`${color}[${name}]${c.reset} starting: ${cmd} ${args.join(' ')}`);
+  const child = spawn(cmd, args, { cwd: __dirname, env: process.env });
+  child.stdout.on('data', (d) => process.stdout.write(`${color}[${name}]${c.reset} ${d}`));
+  child.stderr.on('data', (d) => process.stderr.write(`${color}[${name}]${c.reset} ${d}`));
+  child.on('exit', (code, signal) => {
+    console.log(`${color}[${name}]${c.reset} exited (code=${code}, signal=${signal})`);
+  });
+  children.push(child);
+  return child;
 }
 
-console.log(`${colors.blue}XLS CONVERTER - SERVICE STARTER${colors.reset}`);
-console.log(`${colors.blue}===============================${colors.reset}\n`);
+console.log(`${c.blue}XLS Converter — local dev launcher${c.reset}`);
 
-// Start Python service (the core conversion engine)
-console.log(`${colors.cyan}STARTING${colors.reset} - Python XLS Conversion Service (core engine)...`);
-const pythonProcess = spawn('python', ['src/server/xls-conversion-service.py'], {
-  stdio: 'pipe',
-  shell: true,
-  cwd: __dirname
-});
+launch('PYTHON', c.green, 'python', ['src/server/xls-conversion-service.py']);
 
-pythonProcess.stdout.on('data', (data) => {
-  console.log(`${colors.green}[PYTHON]${colors.reset} ${data.toString().trim()}`);
-});
-
-pythonProcess.stderr.on('data', (data) => {
-  const output = data.toString().trim();
-  
-  // Check if the line contains error keywords or is actually an INFO message
-  if ((output.toLowerCase().includes('error') && !output.toLowerCase().includes('info')) || 
-      output.toLowerCase().includes('exception') || 
-      output.toLowerCase().includes('critical') || 
-      output.toLowerCase().includes('fatal')) {
-    console.log(`${colors.red}[PYTHON ERROR]${colors.reset} ${output}`);
-  } else if (output.toLowerCase().includes('info')) {
-    console.log(`${colors.green}[PYTHON INFO]${colors.reset} ${output}`);
-  } else if (output.toLowerCase().includes('warn')) {
-    console.log(`${colors.yellow}[PYTHON WARNING]${colors.reset} ${output}`);
-  } else {
-    // It's debug info or other output
-    console.log(`${colors.cyan}[PYTHON DEBUG]${colors.reset} ${output}`);
-  }
-});
-
-// Wait for Python service to initialize
+// Give Python a moment to bind its port before the Node gateway tries to
+// reach it. The gateway will keep working if Python is slow, so this is
+// just a courtesy to avoid noisy "connection refused" lines on startup.
 setTimeout(() => {
-  // Start Node.js wrapper service
-  console.log(`${colors.cyan}STARTING${colors.reset} - Node.js Wrapper Service...`);
-  
-  // Test multiple ports to find an available one
-  const TEST_PORTS = [4002, 4003, 4004, 4005, 4006];
-  const NODE_PORT = TEST_PORTS[0]; // Start with first port
-  
-  // Create a special flag file to force the Node server to remain running
-  fs.writeFileSync(path.join(__dirname, 'server-keep-alive'), 'true', 'utf8');
-  
-  console.log(`${colors.blue}[NODE]${colors.reset} Attempting to start server on port ${NODE_PORT}`);
-  
-  const nodeProcess = spawn('node', ['src/server/index.js'], {
-    stdio: 'pipe',
-    shell: true,
-    cwd: __dirname,
-    env: {
-      ...process.env,
-      PORT: NODE_PORT,
-      KEEP_ALIVE: 'true', // Tell server to stay alive
-      XLS_CONVERSION_SERVICE_URL: 'http://localhost:5001',
-      DEBUG: 'express:router,express:application:error' // Only show important routing and actual errors
-    }
-  });
+  launch('NODE', c.cyan, 'node', ['src/server/index.js']);
+}, 1500);
 
-  nodeProcess.stdout.on('data', (data) => {
-    console.log(`${colors.blue}[NODE]${colors.reset} ${data.toString().trim()}`);
-  });
+console.log(`${c.blue}Press Ctrl+C to stop both services${c.reset}`);
 
-  nodeProcess.stderr.on('data', (data) => {
-    const output = data.toString().trim();
-    
-    // Only show as error if it contains actual error keywords
-    if (output.toLowerCase().includes('error') || 
-        output.toLowerCase().includes('exception') || 
-        output.toLowerCase().includes('fail')) {
-      console.log(`${colors.red}[NODE ERROR]${colors.reset} ${output}`);
-    } else {
-      // It's just debug info, show as regular Node output
-      console.log(`${colors.blue}[NODE DEBUG]${colors.reset} ${output}`);
-    }
-  });
-  
-  // Check if Node.js process starts successfully
-  nodeProcess.on('error', (error) => {
-    console.log(`${colors.red}[NODE PROCESS ERROR]${colors.reset} Failed to start Node.js process: ${error.message}`);
-  });
+const shutdown = () => {
+  console.log(`\n${c.red}Shutting down…${c.reset}`);
+  for (const child of children) {
+    try { child.kill(); } catch { /* ignore */ }
+  }
+  process.exit(0);
+};
 
-  nodeProcess.on('exit', (code, signal) => {
-    if (code !== 0) {
-      console.log(`${colors.red}[NODE EXIT]${colors.reset} Node.js process exited with code ${code} and signal ${signal}`);
-    }
-  });
-
-  // Handle process termination
-  process.on('SIGINT', () => {
-    console.log(`\n${colors.yellow}SHUTTING DOWN${colors.reset} - Terminating services...`);
-    nodeProcess.kill();
-    pythonProcess.kill();
-    process.exit();
-  });
-
-}, 3000); // Give Python service 3 seconds to start
-
-console.log(`\n${colors.yellow}INFO${colors.reset} - Press Ctrl+C to stop all services`);
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

@@ -9,6 +9,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Lockfiles — let the build regenerate against current overrides so vulnerability
+# scanners (e.g. Docker Scout) read fresh resolved versions, not stale ones.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
 # Git and editor settings
 .git/
 .github/

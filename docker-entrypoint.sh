@@ -5,30 +5,32 @@ echo "======================================================================="
 echo "Starting XLS to XLSX Converter Application"
 echo "======================================================================="
 
-# Create required directories if they don't exist
+# Runtime directories (mounted volumes win if they're attached, otherwise
+# we create empty ones inside the image so multer/Flask have somewhere
+# to write).
 mkdir -p /app/uploads /app/output /app/temp
 
-# 1. Start the test server in the background
-echo "\n[1/3] Starting test server on port $PORT..."
-node /app/test-server.js &
-TEST_SERVER_PID=$!
-
-# Give the server a moment to initialize
-sleep 2
-echo "Test server started with PID $TEST_SERVER_PID"
-
-# 2. Start the Python conversion service in the background
-echo "\n[2/3] Starting Python XLS Conversion Service on port $PYTHON_SERVICE_PORT..."
+# 1. Python conversion service (the actual XLS engine, internal)
+echo
+echo "[1/3] Starting Python XLS Conversion Service on port ${PYTHON_SERVICE_PORT}..."
 python /app/src/server/xls-conversion-service.py &
-PYTHON_SERVICE_PID=$!
+PYTHON_PID=$!
+echo "      pid=${PYTHON_PID}"
 
-# Give the Python service a moment to initialize
+# Give Flask a moment to bind before Node tries to talk to it.
 sleep 2
-echo "Python service started with PID $PYTHON_SERVICE_PID"
 
-# 3. Start the client server in the foreground
-echo "\n[3/3] Starting client web interface on port $CLIENT_PORT..."
-cd /app && npx serve src/client -l $CLIENT_PORT
+# 2. Node API gateway (the public-facing /convert endpoint)
+echo
+echo "[2/3] Starting Node API gateway on port ${PORT}..."
+node /app/src/server/index.js &
+NODE_PID=$!
+echo "      pid=${NODE_PID}"
 
-# Note: If client server exits, we should clean up the background processes
-trap "kill $TEST_SERVER_PID $PYTHON_SERVICE_PID" EXIT
+# 3. Static web client (Python's built-in http.server — no extra deps)
+echo
+echo "[3/3] Starting static web client on port ${CLIENT_PORT}..."
+cd /app && exec python -m http.server "${CLIENT_PORT}" --directory src/client --bind 0.0.0.0
+
+# (exec replaces this shell, so the trap below only matters if the exec fails)
+trap "kill ${PYTHON_PID} ${NODE_PID} 2>/dev/null || true" EXIT INT TERM
