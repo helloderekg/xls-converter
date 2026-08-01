@@ -1,6 +1,14 @@
 Flask>=3.0.0
 pandas>=2.2.2
-xlrd==2.0.1
-openpyxl==3.1.2
+# Floors track pandas' own optional-dependency minimums (pandas.compat._optional
+# VERSIONS). openpyxl was pinned ==3.1.2 while pandas resolved to 3.0.5, which
+# requires >=3.1.5, so every .xlsx upload failed with "Pandas requires version
+# '3.1.5' or newer of 'openpyxl'". odfpy was missing entirely, so every .ods
+# upload failed with "Import odfpy failed" — and both formats are advertised in
+# ALLOWED_EXTENSIONS and in the README. Do not pin these back to exact versions:
+# an exact pin under a floating pandas is what let them drift out of range.
+xlrd>=2.0.1
+openpyxl>=3.1.5
+odfpy>=1.4.1
 PyJWT>=2.12.0
 werkzeug>=3.0.1

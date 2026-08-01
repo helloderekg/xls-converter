@@ -1,13 +1,16 @@
 # syntax=docker/dockerfile:1.6
 #
-# Zero-CVE multi-stage build using Chainguard Wolfi as the base.
-# Wolfi packages are continuously rebuilt against the latest CVE fixes,
-# so the runtime image starts (and stays) at 0 CVEs across CRITICAL/HIGH/MED/LOW.
+# Multi-stage build on Chainguard Wolfi. Wolfi rebuilds its packages against
+# current CVE fixes, so a FRESH build starts clean — but a published tag does
+# not stay clean on its own. The 1.2.1 image scanned clean on 2026-04-07 and
+# reported 148 findings by 2026-07-31 with nothing changed. Rebuild and
+# republish on a schedule; CI does that weekly.
 #
 # App layout:
-#   - test-server.js (Node/Express): API gateway, talks to the Python service
-#   - src/server/xls-conversion-service.py (Flask): does the actual XLS work
+#   - src/server/index.js (Node/Express): API gateway, talks to the Python service
+#   - src/server/xls-conversion-service.py (Flask): does the actual conversion
 #   - src/client/ (static HTML/CSS/JS): served by Python's built-in http.server
+#   - docker-entrypoint.sh starts all three
 
 
 # ---------- Stage 1: build ----------
@@ -47,9 +50,9 @@ RUN mkdir -p /app/uploads /app/output /app/temp
 FROM cgr.dev/chainguard/wolfi-base:latest
 
 LABEL org.opencontainers.image.title="XLS Converter" \
-      org.opencontainers.image.description="Zero-CVE XLS/XLSX converter (Python + Node, Wolfi base)" \
+      org.opencontainers.image.description="XLS/XLSX/CSV/ODS/JSON to XLSX converter (Python + Node, Wolfi base)" \
       org.opencontainers.image.vendor="XLS Converter" \
-      org.opencontainers.image.version="1.2.1" \
+      org.opencontainers.image.version="1.2.3" \
       org.opencontainers.image.source="https://github.com/helloderekg/xls-converter"
 
 USER root
@@ -58,7 +61,7 @@ WORKDIR /app
 # Runtime-only packages — no build tools, no npm, no curl.
 # - python + pip: runs the Flask conversion service AND serves the static client
 #   via `python -m http.server`
-# - nodejs: runs test-server.js
+# - nodejs: runs src/server/index.js
 # - busybox provides wget, used for the HEALTHCHECK
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache \

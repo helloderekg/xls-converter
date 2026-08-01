@@ -1,0 +1,16 @@
+# Verified false positives. Both were checked before being silenced — neither is
+# a credential, and neither ships in the npm tarball (the package.json `files`
+# allowlist excludes docs/ and src/client/app.js).
+#
+# Re-verify rather than trust this file if either line changes.
+
+# docs/api.md:140 — a curl example against api.example.com with a placeholder
+# bearer token, inside the "Example Code" section of the API docs.
+d22e27fbbe2570fc4c74fa1d4c371c6dcb879847:docs/api.md:curl-auth-header:140
+
+# src/client/app.js:47 — the canonical jwt.io sample token, returned by a
+# function whose own comments read "For demo purposes, we're using a simulated
+# token" and "we'll just return a dummy token". Decodes to
+# {"alg":"HS256","typ":"JWT"} / {"sub":"demo-user","iat":1516239022}; that iat
+# is 2018-01-18, the timestamp jwt.io ships in its example.
+d22e27fbbe2570fc4c74fa1d4c371c6dcb879847:src/client/app.js:jwt:47

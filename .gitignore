@@ -121,3 +121,6 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 Icon?
+
+# npm pack output — build artefact, never committed
+*.tgz

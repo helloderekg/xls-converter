@@ -89,9 +89,13 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM,LOW
           vuln-type: os,library
 
-      # Proves the image still converts after any dependency bump. A clean scan
-      # on an image that no longer works is not a passing build.
-      - name: Smoke test — CSV to XLSX through the running container
+      # Every advertised input format, not just the easy one. A CSV-only smoke
+      # test passed while .xlsx and .ods were both completely broken — openpyxl
+      # was pinned below what pandas required, and odfpy was missing from
+      # requirements.txt entirely. Both are in ALLOWED_EXTENSIONS and the README.
+      # Content is checked, not just the status code: a 200 returning the wrong
+      # rows is not a pass.
+      - name: Smoke test — all five input formats end to end
         run: |
           docker run -d --name xls-ci -p 4040:4040 xls-to-xlsx:ci
           for i in $(seq 1 30); do
@@ -99,8 +103,34 @@ jobs:
             sleep 2
           done
           curl -fsS http://localhost:4040/health
-          printf 'name,qty\nAlpha,3\nBeta,7\n' > sample.csv
-          curl -fsS -o out.xlsx -F "file=@sample.csv;type=text/csv" http://localhost:4040/convert
-          python3 -c "import zipfile,sys; z=zipfile.ZipFile('out.xlsx'); sys.exit(0 if 'xl/workbook.xml' in z.namelist() else 1)"
-          echo "converted a CSV to a valid XLSX"
+
+          python3 -m pip install --quiet openpyxl
+
+          declare -A MIME=(
+            [csv]="text/csv"
+            [json]="application/json"
+            [xls]="application/vnd.ms-excel"
+            [xlsx]="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            [ods]="application/vnd.oasis.opendocument.spreadsheet"
+          )
+          fail=0
+          for ext in csv json xls xlsx ods; do
+            code=$(curl -s -o "out_$ext.xlsx" -w "%{http_code}" \
+              -F "file=@test/fixtures/sample.$ext;type=${MIME[$ext]}" \
+              http://localhost:4040/convert)
+            if [ "$code" != "200" ]; then
+              echo "::error::$ext returned HTTP $code"
+              cat "out_$ext.xlsx" || true
+              fail=1
+              continue
+            fi
+            # `if !` rather than `cmd; [ $? -ne 0 ] && fail=1`. Steps run under
+            # `bash -e`, where that idiom aborts the step on a PASSING check,
+            # because the && chain returns 1 when the test is false.
+            if ! python3 test/verify-conversion.py "$ext" "out_$ext.xlsx"; then
+              echo "::error::$ext failed verification"
+              fail=1
+            fi
+          done
           docker rm -f xls-ci
+          exit $fail

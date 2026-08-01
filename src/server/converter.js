@@ -125,21 +125,28 @@ export async function convertXlsToXlsx(inputPath, outputPath, ext) {
  * @returns {ExcelJS.Workbook} Workbook with formulas removed
  */
 export function stripFormulas(workbook) {
-  // For each worksheet in the workbook
-  workbook.eachSheet(worksheet => {
-    // Look through all cells in the worksheet
+  workbook.eachSheet((worksheet) => {
     worksheet.eachRow((row) => {
       row.eachCell((cell) => {
-        // If cell has a formula, replace it with its value or empty string
-        if (cell.formula) {
-          const value = cell.value || '';
-          cell.value = value;
-          cell.formula = undefined;
-        }
+        if (!cell.formula) return;
+
+        // Two things were wrong here. `cell.formula` is getter-only in ExcelJS,
+        // so assigning to it threw "Cannot set property formula ... which has
+        // only a getter" on any workbook that actually contained a formula.
+        // And `cell.value` on a formula cell is { formula, result }, so writing
+        // that object back would have re-established the formula rather than
+        // removing it. Assigning the computed result replaces the cell outright.
+        const current = cell.value;
+        const result =
+          current && typeof current === 'object' && 'result' in current
+            ? current.result
+            : undefined;
+
+        cell.value = result ?? null;
       });
     });
   });
-  
+
   return workbook;
 }
 
