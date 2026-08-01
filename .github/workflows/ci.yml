@@ -114,6 +114,18 @@ jobs:
 
           python3 -m pip install --quiet openpyxl
 
+          # Fail on the actual problem. sample.csv was caught by a *.csv rule in
+          # .gitignore and never committed, so curl died with exit 26 ("cannot
+          # read local file") and the log said nothing about a missing fixture.
+          missing=0
+          for ext in csv json xls xlsx ods; do
+            if [ ! -f "test/fixtures/sample.$ext" ]; then
+              echo "::error::fixture test/fixtures/sample.$ext is missing from the checkout — is it gitignored?"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
           declare -A MIME=(
             [csv]="text/csv"
             [json]="application/json"

@@ -124,3 +124,9 @@ Icon?
 
 # npm pack output — build artefact, never committed
 *.tgz
+
+# The smoke-test fixtures are inputs to CI, not build spoil. sample.csv was
+# silently excluded by the *.csv rule above, so it never got committed and the
+# CI smoke test died on curl exit 26 (cannot read local file) while passing
+# locally, where the file exists untracked.
+!test/fixtures/*.csv
