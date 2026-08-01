@@ -79,10 +79,18 @@ jobs:
       # Trivy rather than Docker Scout: no registry credentials needed, and it
       # covers the apk, npm and pypi layers in one pass. exit-code 1 fails the
       # job, which is the point — the scan is the gate, not a report.
+      #
+      # Both scanners run. `vuln` is the one this job exists for; `secret` is
+      # kept on so a credential baked into a layer fails the build, with the one
+      # known false positive allow-listed by path in trivy-secret.yaml rather
+      # than by switching the scanner off.
       - name: Trivy — fail on any CRITICAL/HIGH/MEDIUM/LOW
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: xls-to-xlsx:ci
+          scanners: vuln,secret
+        env:
+          TRIVY_SECRET_CONFIG: trivy-secret.yaml
           format: table
           exit-code: "1"
           ignore-unfixed: false
