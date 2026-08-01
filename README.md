@@ -1,8 +1,13 @@
 # XLS to XLSX Converter
 
-Secure, **zero-CVE** XLS/XLSX/CSV/ODS/JSON conversion. Ships as both an
-**npm package** (for use as a JS library or client SDK) and a **Docker image**
-(for the full Python + Node service).
+Secure XLS/XLSX/CSV/ODS/JSON conversion. Ships as both an **npm package**
+(for use as a JS library or client SDK) and a **Docker image** (for the full
+Python + Node service).
+
+`docker scout cves` reported **0 across every severity** for the `1.2.2` image
+on 2026-07-31. That is a measurement with a date on it, not a standing
+property: see [Staying at zero](#staying-at-zero) for why it decays and how to
+re-check it yourself.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
@@ -78,10 +83,11 @@ npm run start:client   # Static demo client on :4001 (python http.server)
 
 ### Docker Deployment
 
-The project ships as a **zero-CVE container image** built on
+The project ships a container image built on
 [Chainguard's Wolfi base](https://images.chainguard.dev/), with Python and
-Node.js bundled in a single hardened image. `docker scout` reports
-**0 critical / 0 high / 0 medium / 0 low** vulnerabilities.
+Node.js bundled in a single hardened image. On 2026-07-31 `docker scout cves`
+reported **0 critical / 0 high / 0 medium / 0 low / 0 unspecified** for the
+`1.2.2` build, across 289 indexed packages (149 MB).
 
 Docker Hub: https://hub.docker.com/r/derekgsayshi/xls-converter
 
@@ -215,7 +221,7 @@ const client = new XlsConverterClient('https://your-converter.example', {
 ### Mode 3 — Full service via Docker (Python + Node bundled)
 
 The `derekgsayshi/xls-converter` image bundles the Python conversion engine,
-the Node API gateway, and the static web demo in a single zero-CVE container.
+the Node API gateway, and the static web demo in a single hardened container.
 
 ```bash
 docker run --rm \
@@ -236,8 +242,14 @@ at `http://localhost:4001/`).
 - **Input Sanitization**: Proper handling of filenames and paths
 
 ### Container hardening (v1.2.0)
-- **Zero CVEs**: Built on `cgr.dev/chainguard/wolfi-base`, which is rebuilt nightly
-  against the latest CVE fixes. `docker scout cves` reports `0C / 0H / 0M / 0L`.
+- **Clean scan at build time**: Built on `cgr.dev/chainguard/wolfi-base`, which is
+  rebuilt nightly against the latest CVE fixes. `docker scout cves` reported
+  `0C / 0H / 0M / 0L / 0 unspecified` for `1.2.2` on 2026-07-31.
+- **No pip or setuptools at runtime**: both are removed after the Python
+  dependencies are installed. Nothing at runtime uses them, and pip ships a
+  vendored-dependency SBOM (`pip/_vendor/bom.cdx.json`) that scanners read as
+  installed packages — that one file accounted for two findings for libraries
+  the image never imports.
 - **No build tools at runtime**: No `gcc`, no `npm`, no `curl` in the final image —
   only `python`, `nodejs`, and `busybox` (which provides `wget` for the healthcheck).
 - **Non-root user**: The container runs as `appuser`, not root.
@@ -306,3 +318,38 @@ Contributions are welcome! Please see our [contributing guidelines](./CONTRIBUTI
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+## Staying at zero
+
+A clean scan is a fact about a build, not about the project. The `1.2.1` image
+published on 2026-04-07 scanned clean at the time; re-scanned on 2026-07-31 it
+reported **148 findings (9 critical, 52 high)**. Nothing about it changed — the
+world moved and the image did not. Rebuilding the same Dockerfile the same day
+produced **0**, because Wolfi rebuilds its packages against current fixes.
+
+So the image needs rebuilding and republishing on a schedule, not once. Check
+any tag yourself:
+
+```bash
+docker scout cves derekgsayshi/xls-converter:1.2.2 --platform linux/amd64
+```
+
+If that returns findings, the fix is almost always `docker build` again rather
+than a code change.
+
+### A note for npm consumers
+
+npm `overrides` apply only to the project that declares them, so the pins in
+this repo's `package.json` protect this repo's builds and the container image —
+they do **not** follow the package into your project. Installing `xls-to-xlsx`
+resolves `uuid@8.3.2` transitively through `exceljs@4.4.0`, which pins
+`uuid@^8.3.0` and has no newer release. If your own audit flags it, add the
+override on your side:
+
+```json
+{ "overrides": { "uuid": "11.1.1" } }
+```
+
+Verified compatible: exceljs uses only `const {v4} = require('uuid')`, which
+uuid 11 still provides, and a write/read round-trip through exceljs passes
+under the override.

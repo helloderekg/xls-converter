@@ -70,9 +70,23 @@ RUN apk update && apk upgrade --no-cache && \
 
 # Install Python runtime deps directly (don't copy site-packages from build —
 # the build stage installed them under a different python path inside its layer).
+#
+# pip and setuptools are then removed in the same layer. Nothing at runtime uses
+# them, and pip ships a vendored-dependency SBOM (pip/_vendor/bom.cdx.json) that
+# scanners read as installed packages — that file alone accounted for the
+# msgpack 1.1.2 and setuptools 70.3.0 findings, neither of which was a package
+# this image actually imports. Dropping pip removes the finding and the attack
+# surface together.
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
+    rm /tmp/requirements.txt && \
+    apk del py3.13-pip py3.13-pip-base py3-pip-wheel py3.13-setuptools 2>/dev/null || true && \
+    rm -rf /usr/lib/python3.13/site-packages/pip \
+           /usr/lib/python3.13/site-packages/pip-*.dist-info \
+           /usr/lib/python3.13/site-packages/setuptools \
+           /usr/lib/python3.13/site-packages/setuptools-*.dist-info \
+           /usr/lib/python3.13/site-packages/pkg_resources \
+           /root/.cache/pip
 
 # Bring in the app + node_modules from the build stage
 COPY --from=build /app /app
