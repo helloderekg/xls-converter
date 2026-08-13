@@ -154,3 +154,32 @@ jobs:
           done
           docker rm -f xls-ci
           exit $fail
+
+  # A cron failure notifies nobody the way a failed push does. The 2026-08-10
+  # run failed on a nanoid advisory and went unread for three days. This turns
+  # the weekly gate's failure into an issue instead of a red X in a tab.
+  report-failure:
+    name: File an issue when the scheduled run fails
+    needs: [node, python, image]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: "Scheduled CI run is failing"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="The scheduled CI run failed on $(date -u +%F). $RUN_URL"
+          # One issue, commented on each week, rather than a new one per run.
+          n=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+                --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi
