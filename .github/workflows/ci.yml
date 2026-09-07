@@ -8,6 +8,9 @@
 name: CI
 
 on:
+  # The weekly audit heal pushes with GITHUB_TOKEN, which starts no push-triggered
+  # run; it dispatches this workflow instead so the bot's commit still gets CI.
+  workflow_dispatch: {}
   push:
   pull_request:
   schedule:
