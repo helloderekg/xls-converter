@@ -1,0 +1,174 @@
+name: Audit
+
+# Advisories publish against code that is not changing, so a push-only gate
+# cannot see them. On 2026-08-10 this portfolio carried high findings in
+# committed lockfiles while every main branch read green, purely because
+# nothing had pushed since they landed. This is the run that notices.
+#
+# Standalone rather than a cron on the existing workflow: in several repos the
+# workflow that audits is also the workflow that deploys, and a schedule there
+# would ship production every week.
+#
+# Noticing was not enough. On 2026-09-07 one sanitize-html advisory turned 30
+# repos red on the same Monday, each needing the same one-line bump. So the
+# scheduled run now heals itself: scripts/audit-heal.mjs moves each flagged
+# package to the lowest patched release that is at least 48h old (the Tier 1
+# hold in the update-cadence rule), never across a major, re-runs this repo's
+# own gate, and only then commits the lockfile to the default branch. Anything
+# it cannot fix that way is left for a person and filed as the issue below.
+#
+# A push made with GITHUB_TOKEN does not start other workflows (GitHub's own
+# recursion guard), so the heal step dispatches ci.yml afterwards when one
+# exists, and the push trigger on this file cannot loop on its own commit.
+
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch: {}
+  push:
+    paths:
+      - "**/package.json"
+      - "**/package-lock.json"
+      - "**/pnpm-lock.yaml"
+      - ".github/workflows/audit.yml"
+      - "scripts/audit-heal.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Dependency audit (0 advisories)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+      issues: write
+    env:
+      # The gate already ran in this job; the husky pre-push hook would only
+      # repeat it, on a runner that has none of the hook's local tooling.
+      HUSKY: "0"
+      AUDIT_GATE: npm audit --audit-level=low
+      # Space-separated directories that carry a package-lock.json to audit.
+      AUDIT_DIRS: "."
+    outputs:
+      report: ${{ steps.heal.outputs.report }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install (locked)
+        run: |
+          for d in $AUDIT_DIRS; do
+            (cd "$d" && npm ci --no-audit --no-fund)
+          done
+
+      - name: Audit
+        id: audit
+        # A failure here is not the job's verdict yet; the heal step gets to try.
+        continue-on-error: true
+        run: |
+          rc=0
+          for d in $AUDIT_DIRS; do
+            echo "::group::audit $d"
+            (cd "$d" && $AUDIT_GATE) || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+      - name: Heal (scheduled and manual runs only)
+        id: heal
+        if: steps.audit.outcome == 'failure' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        env:
+          HEAL_OUT_DIR: ${{ runner.temp }}/audit-heal
+        run: |
+          # The default shell runs with -e; capture the exit code without letting
+          # a failed heal skip the report that explains it.
+          status=0
+          node scripts/audit-heal.mjs $AUDIT_DIRS || status=$?
+          {
+            echo "report<<HEAL_EOF"
+            cat "$HEAL_OUT_DIR/report.md"
+            echo "HEAL_EOF"
+          } >> "$GITHUB_OUTPUT"
+          cat "$HEAL_OUT_DIR/report.md" >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Commit and push the patched lockfile
+        if: steps.heal.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAL_OUT_DIR: ${{ runner.temp }}/audit-heal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for d in $AUDIT_DIRS; do
+            git add -- "$d/package.json" "$d/package-lock.json"
+          done
+          if git diff --cached --quiet; then
+            echo "gate passes on the committed tree; nothing to push"
+            exit 0
+          fi
+          git commit -F "$HEAL_OUT_DIR/commit.txt"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          if [ -f .github/workflows/ci.yml ]; then
+            gh workflow run ci.yml --ref "$GITHUB_REF_NAME" || echo "::warning::could not dispatch ci.yml"
+          fi
+
+      - name: Close the tracking issue once the tree is clean
+        if: (steps.audit.outcome == 'success' || steps.heal.outcome == 'success') && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Scheduled dependency audit is failing"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          n=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+                --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ -n "$n" ]; then
+            gh issue close "$n" --comment "The dependency audit passed on $(date -u +%F). $RUN_URL"
+          fi
+
+      - name: Verdict
+        if: steps.audit.outcome == 'failure' && steps.heal.outcome != 'success'
+        run: |
+          echo "::error::advisories remain and the heal step could not clear them; see the run summary"
+          exit 1
+
+  # A cron failure notifies nobody the way a failed push does. The 2026-08-10
+  # findings sat unread for three days for exactly that reason. One issue,
+  # commented on each week, rather than a fresh one every Monday.
+  report-failure:
+    name: File an issue when the scheduled audit fails
+    needs: [audit]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gh runs without a checkout here, so it cannot infer the repo from git.
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Scheduled dependency audit is failing"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPORT: ${{ needs.audit.outputs.report }}
+        run: |
+          body="The weekly dependency audit failed on $(date -u +%F) and the self-heal step could not clear it. $RUN_URL"
+          if [ -n "$REPORT" ]; then
+            body=$(printf '%s\n\n%s' "$body" "$REPORT")
+          fi
+          n=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+                --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi
