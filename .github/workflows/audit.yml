@@ -92,8 +92,11 @@ jobs:
         env:
           HEAL_OUT_DIR: ${{ runner.temp }}/audit-heal
         run: |
-          # The default shell runs with -e; capture the exit code without letting
-          # a failed heal skip the report that explains it.
+          # The default shell is `bash -e` WITHOUT pipefail, so a pipeline's
+          # status is tee's, not node's. On 2026-09-14 that turned a heal that
+          # had correctly refused its own result into a committed broken
+          # lockfile (dmg-l-and-d 85b0820). Capture the script's exit code.
+          set -o pipefail
           status=0
           node scripts/audit-heal.mjs $AUDIT_DIRS 2>&1 | tee "$RUNNER_TEMP/audit-heal.log" || status=$?
           if [ ! -f "$HEAL_OUT_DIR/report.md" ]; then

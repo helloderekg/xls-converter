@@ -167,7 +167,18 @@ function healDir(dir) {
     } catch (err) {
       if (!RESOLVER_CRASH.test(String(err.message))) throw err;
       npm([...args, "--legacy-peer-deps"], cwd);
-      if (!usedLegacyPeers) notes.push("npm's resolver crashed (arborist edgesOut); resolved with --legacy-peer-deps and verified with npm ls");
+      // --legacy-peer-deps also drops the peers npm had auto-installed
+      // (@testing-library/dom under @testing-library/react in dmg-l-and-d on
+      // 2026-09-14), and plain `npm ci` refuses such a lockfile. With the
+      // targets already in the lockfile a normal resolve no longer trips the
+      // crash and puts those peers back; if it does crash, the npm ls check
+      // below is what decides.
+      try {
+        npm(["install", "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`], cwd);
+      } catch (again) {
+        if (!RESOLVER_CRASH.test(String(again.message))) throw again;
+      }
+      if (!usedLegacyPeers) notes.push("npm's resolver crashed (arborist edgesOut); resolved with --legacy-peer-deps, re-resolved normally for peers, verified with npm ls");
       usedLegacyPeers = true;
     }
   }
