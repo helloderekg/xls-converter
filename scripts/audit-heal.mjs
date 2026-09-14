@@ -206,6 +206,8 @@ function healDir(dir) {
     // package.json npm builds the ideal tree from the caret first and reaches
     // the newest release under the cutoff before the explicit argument applies.
     const styledSpecs = new Map();
+    // name -> the override to leave in package.json after the install.
+    const restoreOverrides = new Map();
     let progressed = false;
 
     for (const [name, v] of vulns) {
@@ -220,14 +222,19 @@ function healDir(dir) {
       const installed = installedVersions(lock, name).filter((cur) => ranges.some((r) => semver.satisfies(cur, r)));
       if (!installed.length) continue;
 
-      if (v.fixAvailable && typeof v.fixAvailable === "object" && v.fixAvailable.isSemVerMajor) {
-        blocked.push({ name, installed, reason: `fix needs a major bump of ${v.fixAvailable.name} to ${v.fixAvailable.version}`, urls });
-        continue;
-      }
-
       const deps = pkg.dependencies || {};
       const devDeps = pkg.devDependencies || {};
       const overrides = pkg.overrides || {};
+
+      // npm's fixAvailable describes npm's own plan (bump the parent), which for
+      // a transitive package may be a major bump of the parent while the package
+      // itself has a patch release; an override reaches that patch directly
+      // (sharp under @cloudflare/vitest-pool-workers in vendkit, 2026-09-14).
+      // Only a direct dependency is bound by npm's verdict.
+      if (v.isDirect && v.fixAvailable && typeof v.fixAvailable === "object" && v.fixAvailable.isSemVerMajor) {
+        blocked.push({ name, installed, reason: `fix needs a major bump of ${v.fixAvailable.name} to ${v.fixAvailable.version}`, urls });
+        continue;
+      }
 
       if (v.isDirect && (name in deps || name in devDeps)) {
         const cur = installed[0];
@@ -240,7 +247,15 @@ function healDir(dir) {
         const oldSpec = table[name];
         table[name] = target;
         styledSpecs.set(name, specFor(oldSpec, target));
-        if (name in overrides && overrides[name] !== `$${name}`) overrides[name] = `$${name}`;
+        // An override on a direct dependency must equal its spec or be "$name".
+        // During the explicit install it is the exact target (the "$name" form
+        // fails that install with "Unable to resolve reference"); afterwards it
+        // becomes "$name", which tracks the spec from then on. A nested object
+        // (vitest: { vite: "8.0.16" }) scopes a child pin and is left alone.
+        if (typeof overrides[name] === "string") {
+          overrides[name] = target;
+          restoreOverrides.set(name, `$${name}`);
+        }
         pkgDirty = true;
         progressed = true;
         directTargets.set(name, target);
@@ -354,6 +369,9 @@ function healDir(dir) {
           for (const [n, spec] of styledSpecs) {
             if (after[table]?.[n] !== undefined) after[table][n] = spec;
           }
+        }
+        for (const [n, ov] of restoreOverrides) {
+          if (after.overrides?.[n] !== undefined) after.overrides[n] = ov;
         }
         writeJson(pkgPath, after);
       } else if (pkgDirty) {
