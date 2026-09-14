@@ -64,13 +64,13 @@
     "express": "4.21.2",
     "form-data": "4.0.6",
     "jsonwebtoken": "9.0.2",
-    "multer": "2.2.0",
+    "multer": "2.3.0",
     "node-fetch": "2.6.12"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "supertest": "^7.1.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "form-data": "$form-data",
@@ -87,6 +87,7 @@
     "path-to-regexp": "0.1.13",
     "tar": "7.5.11",
     "postcss": "^8.5.18",
-    "nanoid": "^3.3.18"
+    "nanoid": "^3.3.18",
+    "@vitest/mocker": "^4.1.11"
   }
 }
