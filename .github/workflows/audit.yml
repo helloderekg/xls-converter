@@ -67,9 +67,18 @@ jobs:
           node-version: 22
 
       - name: Install (locked)
+        # A registry hiccup (ECONNRESET on prenupdesk, 2026-09-14) must not
+        # read as a failed audit, least of all on a Monday when 50 repos
+        # install within the same few hours. Three tries, spaced out.
         run: |
           for d in $AUDIT_DIRS; do
-            (cd "$d" && npm ci --no-audit --no-fund)
+            ok=0
+            for try in 1 2 3; do
+              if (cd "$d" && npm ci --no-audit --no-fund); then ok=1; break; fi
+              echo "::warning::npm ci failed in $d (try $try)"
+              sleep $((try * 30))
+            done
+            [ "$ok" = 1 ] || exit 1
           done
 
       - name: Audit
@@ -77,10 +86,20 @@ jobs:
         # A failure here is not the job's verdict yet; the heal step gets to try.
         continue-on-error: true
         run: |
+          # Without pipefail the `if` below would test tee's status, not the gate's.
+          set -o pipefail
           rc=0
           for d in $AUDIT_DIRS; do
             echo "::group::audit $d"
-            (cd "$d" && $AUDIT_GATE) || rc=1
+            # The gate reads the registry's advisory endpoint; retry only when
+            # its own output says the network failed, never on a real finding.
+            for try in 1 2 3; do
+              if (cd "$d" && $AUDIT_GATE) 2>&1 | tee "$RUNNER_TEMP/gate.log"; then break; fi
+              if grep -qE 'ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|socket hang up|network|50[234] ' "$RUNNER_TEMP/gate.log" && [ "$try" -lt 3 ]; then
+                echo "::warning::gate hit a network error in $d (try $try)"; sleep $((try * 30)); continue
+              fi
+              rc=1; break
+            done
             echo "::endgroup::"
           done
           exit $rc

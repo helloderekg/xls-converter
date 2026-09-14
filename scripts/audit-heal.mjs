@@ -53,14 +53,27 @@ const cutoff = new Date(Date.now() - MIN_AGE_HOURS * 3600 * 1000);
 const cutoffISO = cutoff.toISOString();
 const MAX_PASSES = 3;
 
+// Registry hiccups look like failed heals otherwise, and on a Monday morning 50
+// repos hit the registry within the same few hours (ECONNRESET, 2026-09-14).
+const NETWORK_ERROR = /ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|socket hang up|network (read|request|timeout)|E50[234]|503 Service/;
+function pause(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function npm(args, cwd, { allowFail = false } = {}) {
-  const r = spawnSync(win ? "npm.cmd" : "npm", args, {
-    cwd,
-    encoding: "utf8",
-    shell: win,
-    maxBuffer: 64 * 1024 * 1024,
-    env: { ...process.env, npm_config_fund: "false", npm_config_audit: "false" },
-  });
+  let r;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    r = spawnSync(win ? "npm.cmd" : "npm", args, {
+      cwd,
+      encoding: "utf8",
+      shell: win,
+      maxBuffer: 64 * 1024 * 1024,
+      env: { ...process.env, npm_config_fund: "false", npm_config_audit: "false" },
+    });
+    if (r.status === 0 || !NETWORK_ERROR.test(`${r.stderr}\n${r.stdout}`) || attempt === 3) break;
+    console.error(`audit-heal: npm ${args[0]} hit a network error (try ${attempt}), retrying`);
+    pause(attempt * 15000);
+  }
   if (r.status !== 0 && !allowFail) {
     throw new Error(`npm ${args.join(" ")} failed in ${cwd}:\n${r.stderr || r.stdout}`);
   }
