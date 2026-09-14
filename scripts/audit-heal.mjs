@@ -107,6 +107,22 @@ function pickTarget(name, current, vulnerableRanges) {
   return { target: aged || null, youngestFix: ok[0] || null };
 }
 
+const peerCache = new Map();
+function peerDepsOf(name, version) {
+  const key = `${name}@${version}`;
+  if (!peerCache.has(key)) {
+    const r = npm(["view", key, "peerDependencies", "--json"], process.cwd(), { allowFail: true });
+    let peers = {};
+    try {
+      peers = r.stdout.trim() ? JSON.parse(r.stdout) : {};
+    } catch {
+      peers = {};
+    }
+    peerCache.set(key, peers && typeof peers === "object" ? peers : {});
+  }
+  return peerCache.get(key);
+}
+
 function installedVersions(lock, name) {
   const suffix = `node_modules/${name}`;
   const out = new Set();
@@ -129,11 +145,32 @@ function specFor(oldSpec, target) {
   return target;
 }
 
+// npm 10.9's resolver dies inside its peer-set walk on vitest 4.1's optional
+// peer set ("Cannot read properties of null (reading 'edgesOut')", arborist
+// build-ideal-tree #loadPeerSet), with or without --before, on install and on
+// update alike. --legacy-peer-deps skips that walk. It is used only after the
+// crash, never for an ERESOLVE conflict, and the lockfile it produces is then
+// checked with `npm ls` and against every target before anything is committed.
+const RESOLVER_CRASH = /reading 'edgesOut'|TypeError: Cannot read properties of null/;
+
 function healDir(dir) {
   const cwd = resolve(dir);
   const changes = [];
   const blocked = [];
+  const notes = [];
   const seen = new Set();
+  let usedLegacyPeers = false;
+
+  function resolveWithNpm(args) {
+    try {
+      npm(args, cwd);
+    } catch (err) {
+      if (!RESOLVER_CRASH.test(String(err.message))) throw err;
+      npm([...args, "--legacy-peer-deps"], cwd);
+      if (!usedLegacyPeers) notes.push("npm's resolver crashed (arborist edgesOut); resolved with --legacy-peer-deps and verified with npm ls");
+      usedLegacyPeers = true;
+    }
+  }
 
   for (let pass = 1; pass <= MAX_PASSES; pass++) {
     const audit = auditJson(cwd);
@@ -146,11 +183,23 @@ function healDir(dir) {
     const lock = readJson(lockPath);
     let pkgDirty = false;
     const updateNames = [];
+    // name -> exact target for every direct package this pass moves. Passed to
+    // npm explicitly: with only a caret in package.json, npm resolves the newest
+    // release under the cutoff (astro ^7.2.8 became 7.3.2 on 2026-09-14), whose
+    // peers the rest of the tree cannot satisfy, and npm 10.9.8 then dies inside
+    // arborist ("Cannot read properties of null (reading 'edgesOut')") instead
+    // of reporting the conflict. Explicit versions keep "lowest patched" true.
+    const directTargets = new Map();
+    // name -> the spec to leave in package.json (the author's prefix kept).
+    // During the install the spec is the exact target: with a caret already in
+    // package.json npm builds the ideal tree from the caret first and reaches
+    // the newest release under the cutoff before the explicit argument applies.
+    const styledSpecs = new Map();
     let progressed = false;
 
     for (const [name, v] of vulns) {
       const advisories = (v.via || []).filter((x) => typeof x === "object" && x.url);
-      if (!advisories.length) continue; // only vulnerable through a dependency; the dependency's entry handles it
+      if (!advisories.length) continue; // only vulnerable through a dependency; handled below or by that dependency's entry
       const key = `${name}@${pass}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -178,11 +227,39 @@ function healDir(dir) {
         }
         const table = name in deps ? deps : devDeps;
         const oldSpec = table[name];
-        table[name] = specFor(oldSpec, target);
+        table[name] = target;
+        styledSpecs.set(name, specFor(oldSpec, target));
         if (name in overrides && overrides[name] !== `$${name}`) overrides[name] = `$${name}`;
         pkgDirty = true;
         progressed = true;
-        changes.push({ name, from: cur, to: target, how: `${name in deps ? "dependencies" : "devDependencies"} ${oldSpec} -> ${table[name]}`, urls });
+        directTargets.set(name, target);
+        changes.push({ name, from: cur, to: target, how: `${name in deps ? "dependencies" : "devDependencies"} ${oldSpec} -> ${styledSpecs.get(name)}`, urls });
+
+        // A peer the target names that the root also depends on has to move in
+        // the same install, or npm resolves the root's copy first (newest under
+        // the cutoff) and reports the target's peer as a conflict. astro 7.2.8
+        // wants @astrojs/markdown-remark 7.2.4 exactly; the root said ^7.2.1.
+        for (const [peer, range] of Object.entries(peerDepsOf(name, target))) {
+          const peerTable = peer in deps ? deps : peer in devDeps ? devDeps : null;
+          if (!peerTable || directTargets.has(peer)) continue;
+          const curPeer = installedVersions(lock, peer).sort(semver.compare)[0];
+          if (!curPeer || semver.satisfies(curPeer, range)) continue;
+          const rootSpec = styledSpecs.get(peer) || peerTable[peer];
+          const fits = registryInfo(peer)
+            .versions.filter((v) => semver.valid(v) && !semver.prerelease(v))
+            .filter((v) => semver.satisfies(v, range) && semver.satisfies(v, rootSpec, { includePrerelease: false }))
+            .sort(semver.compare);
+          const aged = fits.find((v) => oldEnough(peer, v));
+          if (!aged) {
+            blocked.push({ name: peer, installed: [curPeer], reason: `${name}@${target} wants ${peer}@${range}; no release satisfying that and the root's ${rootSpec} is at least ${MIN_AGE_HOURS}h old`, urls: [] });
+            continue;
+          }
+          const oldPeerSpec = peerTable[peer];
+          peerTable[peer] = aged;
+          styledSpecs.set(peer, specFor(oldPeerSpec, aged));
+          directTargets.set(peer, aged);
+          changes.push({ name: peer, from: curPeer, to: aged, how: `${peerTable === deps ? "dependencies" : "devDependencies"} ${oldPeerSpec} -> ${styledSpecs.get(peer)}, peer of ${name}@${target} (${range})`, urls: [] });
+        }
         continue;
       }
 
@@ -223,21 +300,93 @@ function healDir(dir) {
       }
     }
 
+    // A direct package that is vulnerable only through one being moved above is
+    // its peer family (vitest and @vitest/coverage-v8 pin each other exactly).
+    // Leaving it behind makes the install unsatisfiable, so it moves with them.
+    if (directTargets.size) {
+      const deps = pkg.dependencies || {};
+      const devDeps = pkg.devDependencies || {};
+      for (const [name, v] of vulns) {
+        if (!v.isDirect || directTargets.has(name) || !(name in deps || name in devDeps)) continue;
+        const through = (v.via || []).filter((x) => typeof x === "string");
+        if (!through.length || !through.some((t) => directTargets.has(t))) continue;
+        const cur = installedVersions(lock, name).sort(semver.compare)[0];
+        if (!cur || !v.range) continue;
+        const { target, youngestFix } = pickTarget(name, cur, [v.range]);
+        if (!target) {
+          blocked.push({ name, installed: [cur], reason: youngestFix ? `${youngestFix} is the only release clear of the vulnerable range and is younger than ${MIN_AGE_HOURS}h` : "no release clear of the vulnerable range within this major", urls: [] });
+          continue;
+        }
+        const table = name in deps ? deps : devDeps;
+        const oldSpec = table[name];
+        table[name] = target;
+        styledSpecs.set(name, specFor(oldSpec, target));
+        pkgDirty = true;
+        directTargets.set(name, target);
+        changes.push({ name, from: cur, to: target, how: `${name in deps ? "dependencies" : "devDependencies"} ${oldSpec} -> ${styledSpecs.get(name)}, moved with ${through.filter((t) => directTargets.has(t)).join(", ")}`, urls: [] });
+      }
+    }
+
     if (pkgDirty) writeJson(pkgPath, pkg);
     if (!progressed) break;
 
     // --before is the age floor for everything npm resolves here, including the
-    // transitive packages that come along with a bump.
-    if (pkgDirty) npm(["install", "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`], cwd);
-    if (updateNames.length) npm(["update", ...new Set(updateNames), "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`], cwd);
+    // transitive packages that come along with a bump. A failure here is a
+    // report, not a crash: the gate still runs and the issue gets the reason.
+    try {
+      if (directTargets.size) {
+        const specs = [...directTargets].map(([n, t]) => `${n}@${t}`);
+        resolveWithNpm(["install", ...specs, "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`]);
+        // The lockfile now carries the exact target; put the author's prefix back.
+        const after = readJson(pkgPath);
+        for (const table of ["dependencies", "devDependencies"]) {
+          for (const [n, spec] of styledSpecs) {
+            if (after[table]?.[n] !== undefined) after[table][n] = spec;
+          }
+        }
+        writeJson(pkgPath, after);
+      } else if (pkgDirty) {
+        resolveWithNpm(["install", "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`]);
+      }
+      if (updateNames.length) resolveWithNpm(["update", ...new Set(updateNames), "--package-lock-only", "--ignore-scripts", `--before=${cutoffISO}`]);
+      // Every direct target must be exactly where it was sent, whatever path got it there.
+      const lockNow = readJson(lockPath);
+      for (const [n, t] of directTargets) {
+        const got = lockNow.packages?.[`node_modules/${n}`]?.version;
+        if (got !== t) blocked.push({ name: n, installed: [got || "(missing)"], reason: `asked npm for ${n}@${t} but the lockfile carries ${got || "nothing"}`, urls: [] });
+      }
+    } catch (err) {
+      const tail = String(err.message).split("\n").filter((l) => /npm (error|ERR!)/.test(l) && !/complete log|full report/.test(l)).slice(0, 12).join("\n");
+      blocked.push({ name: "(npm)", installed: [], reason: `npm could not apply the bumps above:\n${tail || err.message.slice(0, 1500)}`, urls: [] });
+      break;
+    }
+  }
+
+  let treeOk = true;
+  if (usedLegacyPeers) {
+    // npm ls exits non-zero on a missing or out-of-range dependency, peers
+    // included; unmet OPTIONAL peers are reported but do not fail it.
+    const ls = npm(["ls", "--package-lock-only", "--all"], cwd, { allowFail: true });
+    if (ls.status !== 0) {
+      treeOk = false;
+      const problems = (ls.stdout + ls.stderr).split("\n").filter((l) => /invalid|missing|ERESOLVE|ELSPROBLEMS/.test(l) && !/OPTIONAL/.test(l)).slice(0, 12).join("\n");
+      blocked.push({ name: "(npm ls)", installed: [], reason: `after the --legacy-peer-deps fallback npm ls reports an inconsistent tree:\n${problems}`, urls: [] });
+    }
   }
 
   // The lockfile is what CI installs from; make node_modules match it before
   // the gate runs so the gate sees the same tree the commit will carry.
-  if (changes.length) npm(["ci", "--ignore-scripts"], cwd);
+  if (changes.length && treeOk) {
+    try {
+      npm(["ci", "--ignore-scripts"], cwd);
+    } catch (err) {
+      treeOk = false;
+      blocked.push({ name: "(npm ci)", installed: [], reason: `the patched lockfile does not install:\n${String(err.message).slice(0, 1500)}`, urls: [] });
+    }
+  }
 
   const gate = spawnSync(GATE, { cwd, shell: true, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  return { dir, changes, blocked, gatePassed: gate.status === 0, gateOutput: (gate.stdout || "") + (gate.stderr || "") };
+  return { dir, changes, blocked, notes, gatePassed: treeOk && gate.status === 0, gateOutput: (gate.stdout || "") + (gate.stderr || "") };
 }
 
 for (const d of dirs) {
@@ -260,6 +409,10 @@ for (const r of results) {
     commitLines.push(`${r.dir === "." ? "" : r.dir + ": "}${c.name} ${c.from} -> ${c.to}`);
   }
   for (const b of r.blocked) lines.push(`- LEFT FOR A PERSON ${b.name} (${b.installed.join(", ")}): ${b.reason} ${b.urls.join(" ")}`);
+  for (const n of r.notes) {
+    lines.push(`- NOTE ${n}`);
+    commitLines.push(`${r.dir === "." ? "" : r.dir + ": "}note: ${n}`);
+  }
   if (!r.changes.length && !r.blocked.length) lines.push("- nothing to change");
   if (!r.gatePassed) lines.push("", "```", r.gateOutput.trim().slice(-3000), "```");
   lines.push("");

@@ -26,6 +26,11 @@ on:
     - cron: "41 6 * * 1"
   workflow_dispatch: {}
   push:
+    # Dependabot branches get their gate from the pull request's CI; auditing
+    # every branch push as well only produced red runs on branches that were
+    # about to be rebased or closed.
+    branches-ignore:
+      - "dependabot/**"
     paths:
       - "**/package.json"
       - "**/package-lock.json"
@@ -40,7 +45,8 @@ jobs:
   audit:
     name: Dependency audit (0 advisories)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Two installs plus registry lookups per package moved; 20 was close.
+    timeout-minutes: 30
     permissions:
       contents: write
       actions: write
@@ -89,7 +95,13 @@ jobs:
           # The default shell runs with -e; capture the exit code without letting
           # a failed heal skip the report that explains it.
           status=0
-          node scripts/audit-heal.mjs $AUDIT_DIRS || status=$?
+          node scripts/audit-heal.mjs $AUDIT_DIRS 2>&1 | tee "$RUNNER_TEMP/audit-heal.log" || status=$?
+          if [ ! -f "$HEAL_OUT_DIR/report.md" ]; then
+            # The script died before writing its report (2026-09-14: an npm crash
+            # did exactly that and the missing file broke this step's output).
+            mkdir -p "$HEAL_OUT_DIR"
+            { echo "### Audit heal crashed before reporting"; echo; echo '```'; tail -40 "$RUNNER_TEMP/audit-heal.log"; echo '```'; } > "$HEAL_OUT_DIR/report.md"
+          fi
           {
             echo "report<<HEAL_EOF"
             cat "$HEAL_OUT_DIR/report.md"
