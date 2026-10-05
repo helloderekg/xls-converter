@@ -64,7 +64,7 @@
     "express": "4.21.2",
     "form-data": "4.0.6",
     "jsonwebtoken": "9.0.2",
-    "multer": "2.3.0",
+    "multer": "2.4.0",
     "node-fetch": "2.6.12"
   },
   "devDependencies": {
@@ -76,7 +76,7 @@
     "form-data": "$form-data",
     "minimatch": "10.2.3",
     "@isaacs/brace-expansion": "5.0.1",
-    "brace-expansion": "5.0.9",
+    "brace-expansion": "^5.0.12",
     "qs": "^6.16.0",
     "tmp": "0.2.7",
     "uuid": "11.1.1",
