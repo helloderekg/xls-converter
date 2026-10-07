@@ -243,14 +243,20 @@ function healDir(dir) {
       // a transitive package may be a major bump of the parent while the package
       // itself has a patch release; an override reaches that patch directly
       // (sharp under @cloudflare/vitest-pool-workers in vendkit, 2026-09-14).
-      // Only a direct dependency is bound by npm's verdict.
-      if (v.isDirect && v.fixAvailable && typeof v.fixAvailable === "object" && v.fixAvailable.isSemVerMajor) {
+      // Only a direct dependency is bound by npm's verdict, and only when the
+      // verdict is about that package. For a direct sharp npm named another one
+      // ("major bump of wrangler to 4.15.2", a downgrade from 4.114.0) while
+      // sharp 0.35.5 sat in sharp's own major (wokecorp, discusschess and
+      // wyoming-trading-post, 2026-10-06). pickTarget never crosses a major, so
+      // a verdict about some other package proves nothing here.
+      if (v.isDirect && v.fixAvailable && typeof v.fixAvailable === "object" && v.fixAvailable.isSemVerMajor && v.fixAvailable.name === name) {
         blocked.push({ name, installed, reason: `fix needs a major bump of ${v.fixAvailable.name} to ${v.fixAvailable.version}`, urls });
         continue;
       }
 
       if (v.isDirect && (name in deps || name in devDeps)) {
-        const cur = installed[0];
+        const rootCopy = lock.packages?.[`node_modules/${name}`]?.version;
+        const cur = rootCopy && installed.includes(rootCopy) ? rootCopy : installed[0];
         const { target, youngestFix } = pickTarget(name, cur, ranges);
         if (!target) {
           blocked.push({ name, installed, reason: youngestFix ? `${youngestFix} is the only patched release and is younger than ${MIN_AGE_HOURS}h` : "no patched release within this major", urls });
@@ -265,14 +271,21 @@ function healDir(dir) {
         // fails that install with "Unable to resolve reference"); afterwards it
         // becomes "$name", which tracks the spec from then on. A nested object
         // (vitest: { vite: "8.0.16" }) scopes a child pin and is left alone.
-        if (typeof overrides[name] === "string") {
+        // With no override at all, a parent that pins its own copy (miniflare
+        // wants sharp 0.35.2 exactly) keeps a vulnerable nested copy that the
+        // root bump never reaches; "$name" brings it along, but only when every
+        // such copy is in the target's major.
+        const nestedMajors = new Set(installed.filter((x) => x !== rootCopy).map((x) => semver.major(x)));
+        const pinNested = overrides[name] === undefined && nestedMajors.size > 0 && [...nestedMajors].every((m) => m === semver.major(target));
+        if (typeof overrides[name] === "string" || pinNested) {
+          if (pinNested) pkg.overrides = overrides;
           overrides[name] = target;
           restoreOverrides.set(name, `$${name}`);
         }
         pkgDirty = true;
         progressed = true;
         directTargets.set(name, target);
-        changes.push({ name, from: cur, to: target, how: `${name in deps ? "dependencies" : "devDependencies"} ${oldSpec} -> ${styledSpecs.get(name)}`, urls });
+        changes.push({ name, from: cur, to: target, how: `${name in deps ? "dependencies" : "devDependencies"} ${oldSpec} -> ${styledSpecs.get(name)}${pinNested ? `, overrides (none) -> $${name} for the nested copy` : ""}`, urls });
 
         // A peer the target names that the root also depends on has to move in
         // the same install, or npm resolves the root's copy first (newest under
