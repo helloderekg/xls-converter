@@ -64,7 +64,7 @@
     "express": "4.21.2",
     "form-data": "4.0.6",
     "jsonwebtoken": "9.0.2",
-    "multer": "2.4.0",
+    "multer": "2.5.0",
     "node-fetch": "2.6.12"
   },
   "devDependencies": {
@@ -80,7 +80,7 @@
     "qs": "^6.16.0",
     "tmp": "0.2.7",
     "uuid": "11.1.1",
-    "body-parser": "1.20.6",
+    "body-parser": "^1.20.9",
     "glob": "11.1.0",
     "picomatch": "4.0.4",
     "jws": "3.2.3",
@@ -90,6 +90,7 @@
     "nanoid": "^3.3.18",
     "@vitest/mocker": "^4.1.11",
     "proxy-addr": "^2.0.8",
-    "source-map-js": "^1.2.2"
+    "source-map-js": "^1.2.2",
+    "vite": "^8.2.4"
   }
 }
