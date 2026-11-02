@@ -184,3 +184,35 @@ jobs:
           else
             gh issue create --title "$TITLE" --body "$body"
           fi
+
+  # The report job above opens this issue when a scheduled run fails; nothing
+  # closed it, so it outlived every fix. Close it once the same workflow passes
+  # on the default branch. Skipped jobs (some only run on the schedule or only
+  # off it) do not count against a pass; a failed or cancelled one does.
+  close-failure-issue:
+    name: Close the tracking issue once a run passes
+    needs: [node, python, image]
+    if: >-
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Scheduled CI run is failing"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          n=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+                --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ -n "$n" ]; then
+            gh issue close "$n" --comment "This workflow passed on $(date -u +%F). $RUN_URL"
+          fi
