@@ -1,0 +1,33 @@
+{
+  "comment": "Advisories consciously accepted, checked by scripts/audit-gate.mjs. Anything not listed here fails CI. Acceptances are time-boxed: past reviewBy, the gate fails until the entry is re-checked and either removed (a fix shipped) or renewed.",
+  "accepted": [
+    {
+      "id": "GHSA-g3hv-75wg-m249",
+      "package": "minimatch",
+      "severity": "moderate",
+      "vulnerableRange": "<11.0.1",
+      "firstPatchedVersion": "11.0.1",
+      "installed": [
+        "10.2.3"
+      ],
+      "whyNoFix": "Every minimatch release below 11.0.1 is affected, so the fix is a new major. minimatch 11.0.1 was published 2026-10-27, inside the 14-day hold for a major version. The 10.2.3 here is pinned by this repo's own override for an earlier advisory; move that override to 11.x on review.",
+      "whyNotExploitable": "The DoS needs an attacker-supplied glob pattern. minimatch is reached only through glob and readdir-glob under archiver, which exceljs uses to zip the .xlsx it writes. That path appends generated entries and never globs; the server code (src/) does not import glob, minimatch or archiver, and no request data becomes a pattern.",
+      "acceptedOn": "2026-11-02",
+      "reviewBy": "2026-11-13"
+    },
+    {
+      "id": "GHSA-3g3m-2fjr-6pw4",
+      "package": "glob",
+      "severity": "moderate",
+      "vulnerableRange": ">=9.0.0 <=14.0.1",
+      "firstPatchedVersion": "14.0.2",
+      "installed": [
+        "11.1.0"
+      ],
+      "whyNoFix": "Every glob from 9.0.0 to 14.0.1 is affected, so the fix is the glob 14 major, published 2026-10-27 and inside the 14-day hold for a major version. The 11.1.0 here is pinned by this repo's own override; move it to 14.x on review.",
+      "whyNotExploitable": "The bypass needs code that cancels a glob walk with an AbortSignal over an attacker-influenced tree. glob is reached only through archiver-utils and rimraf under exceljs's zip writer, which never globs request data; src/ does not import glob.",
+      "acceptedOn": "2026-11-02",
+      "reviewBy": "2026-11-13"
+    }
+  ]
+}

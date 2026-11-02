@@ -42,7 +42,8 @@
     "start:client": "python -m http.server 4001 --directory src/client",
     "docker:build": "docker build -t derekgsayshi/xls-converter:1.2.3 -t derekgsayshi/xls-converter:latest .",
     "docker:run": "docker run --rm -p 4040:4040 -p 5001:5001 -p 4001:4001 derekgsayshi/xls-converter:1.2.3",
-    "docker:scan": "docker scout cves derekgsayshi/xls-converter:1.2.3"
+    "docker:scan": "docker scout cves derekgsayshi/xls-converter:1.2.3",
+    "audit:ci": "node scripts/audit-gate.mjs"
   },
   "keywords": [
     "xls",

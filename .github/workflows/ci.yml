@@ -33,21 +33,14 @@ jobs:
       - name: Install (locked)
         run: npm ci
 
-      # Gate on the total rather than --audit-level, which silently tolerates
-      # everything beneath the threshold. The standard here is zero.
-      - name: npm audit — fail on any advisory
+      # Fails on any advisory, at any severity, that is not accepted in
+      # .audit-allowlist.json; an acceptance past its reviewBy fails too. The
+      # raw total this replaced had no way to record an accepted exception.
+      - name: npm audit — fail on any unaccepted advisory
         # The weekly advisory check now lives in audit.yml, which can also fix
         # what it finds; on the schedule this step would only fail first.
         if: github.event_name != 'schedule'
-        run: |
-          npm audit --json > audit.json || true
-          total=$(node -p "JSON.parse(require('fs').readFileSync('audit.json','utf8')).metadata.vulnerabilities.total")
-          echo "advisories: $total"
-          if [ "$total" -ne 0 ]; then
-            npm audit || true
-            echo "::error::$total advisory/advisories. Fix, or record an accepted exception."
-            exit 1
-          fi
+        run: npm run audit:ci
 
       - name: Tests
         run: npm test

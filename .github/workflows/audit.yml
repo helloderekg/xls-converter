@@ -55,7 +55,7 @@ jobs:
       # The gate already ran in this job; the husky pre-push hook would only
       # repeat it, on a runner that has none of the hook's local tooling.
       HUSKY: "0"
-      AUDIT_GATE: npm audit --audit-level=low
+      AUDIT_GATE: npm run audit:ci
       # Space-separated directories that carry a package-lock.json to audit.
       AUDIT_DIRS: "."
     outputs:
